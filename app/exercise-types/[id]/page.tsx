@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowRight, Clock, DollarSign, Calendar, Users, Info } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
+import { useRouter } from 'next/navigation';
 
 interface ExerciseType {
   id: string;
@@ -22,6 +23,7 @@ export default function ExerciseTypePage() {
   const params = useParams();
   const [exerciseType, setExerciseType] = useState<ExerciseType | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchExerciseType = async () => {
@@ -77,7 +79,7 @@ export default function ExerciseTypePage() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       {/* Hero Section */}
       <section className="relative bg-muted/30 py-20">
         <div className="container mx-auto px-4">
@@ -149,11 +151,16 @@ export default function ExerciseTypePage() {
                     Take the first step towards a healthier lifestyle. Join our {exerciseType.name} class today!
                   </p>
                   <div className="space-y-4">
-                    <Button size="lg" className="w-full">
+                    <Button size="lg" className="w-full"
+                      onClick={() => router.push(`/easy-enroll?exercise_type_id=${params.id}`)}
+                    >
                       Enroll Now
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="lg" className="w-full">
+                    <Button variant="outline" size="lg"
+                      className="w-full"
+                      onClick={() => router.push(`/easy-enroll?exercise_type_id=${params.id}`)}
+                    >
                       View Schedule
                     </Button>
                   </div>
@@ -202,11 +209,17 @@ export default function ExerciseTypePage() {
             Join our community and experience the benefits of regular exercise in a supportive environment.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="h-14 text-lg px-8">
+            <Button size="lg" 
+            className="h-14 text-lg px-8"
+            onClick={() => router.push(`/easy-enroll?exercise_type_id=${params.id}`)}
+            >
               Find Available Classes
               <Calendar className="ml-2 h-5 w-5" />
             </Button>
-            <Button variant="outline" size="lg" className="h-14 text-lg px-8">
+            <Button variant="outline" size="lg" 
+            className="h-14 text-lg px-8"
+            onClick={() => router.push(`/contact`)}
+            >
               Contact Us
               <Users className="ml-2 h-5 w-5" />
             </Button>

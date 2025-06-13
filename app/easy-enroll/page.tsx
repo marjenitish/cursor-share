@@ -23,6 +23,7 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format as dateFormat } from "date-fns";
 import { format as timeFormat } from "date-fns";
+import { useSearchParams } from 'next/navigation';
 
 type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
 
@@ -121,6 +122,8 @@ export default function EasyEnrollPage() {
     const [user, setUser] = useState<any>(null);
     const [trialDates, setTrialDates] = useState<Record<string, Date | undefined>>({});
     const [partialDates, setPartialDates] = useState<Record<string, Date[]>>({});
+    const [error, setError] = useState<string | null>(null);
+    const searchParams = useSearchParams();
 
     // Load saved state from localStorage on initial load
     useEffect(() => {
@@ -183,22 +186,49 @@ export default function EasyEnrollPage() {
 
     // Fetch exercise types
     useEffect(() => {
-        const fetchExerciseTypes = async () => {
-            const { data, error } = await supabase
-                .from('exercise_types')
-                .select('*')
-                .order('name');
+        const fetchData = async () => {
+            try {
+                setIsLoading(true);
+                setError(null);
 
-            if (error) {
-                console.error('Error fetching exercise types:', error);
-                return;
+                // Fetch exercise types
+                const { data: exerciseTypesData, error: exerciseTypesError } = await supabase
+                    .from('exercise_types')
+                    .select('*')
+                    .order('name');
+
+                if (exerciseTypesError) throw exerciseTypesError;
+                setExerciseTypes(exerciseTypesData || []);
+
+                // Check for exercise_type_id in URL
+                const exerciseTypeId = searchParams.get('exercise_type_id');
+                if (exerciseTypeId) {
+                    setSelectedExerciseType(exerciseTypeId);
+                }
+
+                // Fetch sessions
+                const { data: sessionsData, error: sessionsError } = await supabase
+                    .from('sessions')
+                    .select(`
+                        *,
+                        exercise_type:exercise_types(*),
+                        instructor:instructors(*),
+                        venue:venues(*)
+                    `)
+                    .order('name');
+
+                if (sessionsError) throw sessionsError;
+                setSessions(sessionsData || []);
+            } catch (err) {
+                console.error('Error fetching data:', err);
+                setError('Failed to load data');
+            } finally {
+                setIsLoading(false);
             }
-
-            setExerciseTypes(data || []);
         };
 
-        fetchExerciseTypes();
-    }, []);
+        fetchData();
+    }, [searchParams]);
 
     // Fetch terms and determine current term
     useEffect(() => {

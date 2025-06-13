@@ -77,45 +77,45 @@ export default function Home() {
     {
       title: "Exercise Physiology",
       description: "Receive focused support for your rehabilitation process.",
-      image: "https://images.pexels.com/photos/7551442/pexels-photo-7551442.jpeg",
+      image: "https://cdn.livelighter.com.au/assets/general-images/physical-activity/older-adult-strength-class.png?width=500&height=354",
       modes: ["in-home", "in-centre", "online"],
     },
     {
       title: "Movement Classes",
       description: "Low-impact cardio exercises for seniors to stay fit at home.",
-      image: "https://images.pexels.com/photos/7551623/pexels-photo-7551623.jpeg",
+      image: "https://www.hcf.com.au/content/dam/hcf/images/health-agenda/physical-health/848974990_Exercise_for_seniors_HUB_ARTICLE_0719.png",
       modes: ["in-centre", "online"],
     },
     {
       title: "Stretch and Flow",
       description: "Experience more freedom and flow in your movement.",
-      image: "https://images.pexels.com/photos/7551623/pexels-photo-7551623.jpeg",
+      image: "https://onebymingara.com.au/wp-content/uploads/2024/05/aquagentle_photo-768x511.png",
       modes: ["in-home", "online"],
     },
     {
       title: "Digital Dialogue",
       description: "Learn how to master technology and the internet.",
-      image: "https://images.pexels.com/photos/7551674/pexels-photo-7551674.jpeg",
+      image: "https://dynamicpilates.com.au/wp-content/uploads/2018/12/Benefits-of-Pilates-for-Seniors-Dynamic-Pilates-1030x675-1.jpg",
       modes: ["online"],
     },
     {
       title: "Let's Have a Conversation",
       description: "Meet new friends, have a chat and enjoy a laugh or two.",
-      image: "https://images.pexels.com/photos/7551684/pexels-photo-7551684.jpeg",
+      image: "https://cotatas.org.au/wp-content/uploads/sites/3/2021/12/llls-participants-chatting.jpg",
       modes: ["in-centre", "online"],
     },
     {
       title: "Social Sessions",
       description: "Perfect for those who are after some fun and engagement.",
-      image: "https://images.pexels.com/photos/7551623/pexels-photo-7551623.jpeg",
+      image: "https://hw.qld.gov.au/wp-content/uploads/2023/04/Stretching-1920x1080-1.jpg",
       modes: ["online"],
     },
   ];
 
   const slideImages = [
     "https://insight.study.csu.edu.au/wp-content/uploads/2018/04/Industry-adapting-Ageing-population.jpg",
-    "https://assets-au-01.kc-usercontent.com/8eab38bf-c951-027f-23de-36c6b71701df/0201ae14-0415-48d7-8f4c-4fb4a0d5c496/article-strengthening-exercises.jpg?w=945&auto=format&lossless=1",
-    "https://salmonhealth.com/wp-content/uploads/2018/01/staying-active-best-low-impact-exercises-for-seniors-700x464-1.jpg",
+    "https://cdn.livelighter.com.au/assets/general-images/physical-activity/seniors-stretch-class.png?width=500&height=354",
+    "https://cdn.livelighter.com.au/assets/general-images/physical-activity/older-adult-strength-class.png?width=500&height=354",
   ];
 
   useEffect(() => {

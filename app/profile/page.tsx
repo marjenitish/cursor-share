@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Navigation } from '@/components/shared/navigation';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { TerminationModal } from '@/components/customers/termination-modal';
 import { getDayName } from '@/lib/utils';
 import Link from 'next/link';
+import { Table, TableHeader, TableBody, TableCell, TableRow, TableHead } from '@/components/ui/table';
 
 const customerSchema = z.object({
   surname: z.string().min(1, 'Surname is required'),
@@ -56,6 +57,71 @@ const customerSchema = z.object({
   next_of_kin_phone: z.string().optional(),
 });
 
+type Payment = {
+    id: string;
+    amount: number;
+    payment_method: string;
+    payment_status: string;
+    transaction_id: string | null;
+    receipt_number: string;
+    payment_date: string;
+    notes: string | null;
+    enrollment: {
+        id: string;
+        enrollment_type: string;
+        status: string;
+    };
+};
+
+type EnrollmentSession = {
+    id: string;
+    enrollment_id: string;
+    session_id: string;
+    booking_date: string;
+    is_free_trial: boolean;
+    trial_date: string | null;
+    partial_dates: string[] | null;
+    enrollment_type: string;
+    session: {
+        id: string;
+        name: string;
+        code: string;
+        day_of_week: string;
+        start_time: string;
+        end_time: string | null;
+        exercise_type: {
+            id: string;
+            name: string;
+        };
+        instructor: {
+            id: string;
+            first_name: string;
+            last_name: string;
+        };
+        venue: {
+            id: string;
+            name: string;
+        };
+    };
+    instructor: {
+      id: string;
+      name: string;
+    }
+};
+
+type Enrollment = {
+    id: string;
+    enrollment_type: string;
+    status: string;
+    payment_status: string;
+    created_at: string;
+    payments: Payment[];
+};
+
+type EnrollmentWithSessions = Enrollment & {
+    sessions: EnrollmentSession[];
+};
+
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -64,7 +130,7 @@ export default function ProfilePage() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [customer, setCustomer] = useState<any>(null);
   const [bookings, setBookings] = useState<any[]>([]);
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
   const [isPAQModalOpen, setIsPAQModalOpen] = useState(false);
@@ -73,6 +139,10 @@ export default function ProfilePage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const { toast } = useToast();
   const supabase = createBrowserClient();
+  const [activeTab, setActiveTab] = useState('profile');
+  const [enrollments, setEnrollments] = useState<EnrollmentWithSessions[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof customerSchema>>({
     resolver: zodResolver(customerSchema),
@@ -87,112 +157,93 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    const getProfile = async () => {
+    const fetchData = async () => {
       try {
+        setIsLoading(true);
+        setError(null);
+
         // Get authenticated user
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
         if (!user) throw new Error('Not authenticated');
         setUser(user);
 
-        // Get user profile from users table
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+        console.log('User authenticated:', user.id);
 
-        if (profile) {
-          setUserProfile(profile);
-        }
-
-        // Get customer profile if exists
-        const { data: customerProfile } = await supabase
+        // Get customer profile
+        const { data: customerData, error: customerError } = await supabase
           .from('customers')
           .select('*')
           .eq('user_id', user.id)
           .single();
 
-        if (customerProfile) {
-          setCustomer(customerProfile);
-          form.reset(customerProfile);
+        if (customerError) throw customerError;
+        if (!customerData) throw new Error('Customer profile not found');
+        setCustomer(customerData);
 
-          console.log("customerProfile", customerProfile)
+        console.log('Customer profile found:', customerData.id);
 
-          // Step 1: Fetch enrollments for the customer
-          const { data: enrollments, error: enrollmentsError } = await supabase
-            .from('enrollments')
-            .select('id')
-            .eq('customer_id', customerProfile.id);
+        // Fetch enrollments for this customer
+        const { data: enrollmentsData, error: enrollmentsError } = await supabase
+          .from('enrollments')
+          .select(`
+            *,
+            payments(*)
+          `)
+          .eq('customer_id', customerData.id)
+          .order('created_at', { ascending: false });
 
-          if (enrollmentsError) {
-            console.error('Error fetching enrollments:', enrollmentsError);
-            return;
-          }
+        if (enrollmentsError) throw enrollmentsError;
 
-          const enrollmentIds = enrollments.map((e: any) => e.id);
+        console.log('Enrollments found:', enrollmentsData?.length || 0);
 
-          // Step 2: Fetch bookings using the enrollment IDs
-          const { data: bookingsData, error: bookingsError } = await supabase
-            .from('bookings')
-            .select(`
+        // Fetch enrollment sessions for these enrollments
+        const enrollmentIds = enrollmentsData?.map(e => e.id) || [];
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from('enrollment_sessions')
+          .select(`
+            *,
+            session:sessions(
               *,
-              classes (
-                id,
-                name,
-                venue,
-                day_of_week,
-                start_time,
-                end_time,
-                instructors (
-                  name
-                )
-              )
-            `)
-            .in('enrollment_id', enrollmentIds)
-            .order('created_at', { ascending: false });
+              exercise_type:exercise_types(*),
+              instructor:instructors(*),
+              venue:venues(*)
+            )
+          `)
+          .in('enrollment_id', enrollmentIds)
+          .order('booking_date', { ascending: false });
 
-          if (bookingsError) {
-            console.error('Error fetching bookings:', bookingsError);
+        if (sessionsError) throw sessionsError;
+
+        console.log('Sessions found:', sessionsData?.length || 0);
+
+        // Group sessions by enrollment
+        const enrollmentsWithSessions = (enrollmentsData || []).map(enrollment => ({
+          ...enrollment,
+          sessions: (sessionsData || []).filter(session => session.enrollment_id === enrollment.id)
+        }));
+
+        setEnrollments(enrollmentsWithSessions);        
+
+        // Safely handle payments
+        const allPayments = (enrollmentsData || []).reduce((acc: Payment[], enrollment) => {
+          if (enrollment.payments && Array.isArray(enrollment.payments)) {
+            return [...acc, ...enrollment.payments];
           }
+          return acc;
+        }, []);
+        setPayments(allPayments);
 
-          console.log("bookingsData", bookingsData)
-
-          setBookings(bookingsData || []);
-
-          // Fetch payments
-          const { data: paymentsData } = await supabase
-            .from('payments')
-            .select(`
-              *,
-              enrollments (
-                id
-              )
-            `)
-            .in('enrollment_id', enrollmentIds)
-            .order('payment_date', { ascending: false });
-
-          setPayments(paymentsData || []);
-
-          // Fetch active termination request
-          const { data: terminationData, error: terminationError } = await supabase
-            .from('terminations')
-            .select('*')
-            .eq('customer_id', customerProfile.id)
-            .in('status', ['pending', 'accepted']) // Assuming these are the statuses for active requests
-            .single();
-
-          if (!terminationError && terminationData) setTerminationRequest(terminationData);
-        }
-
-        setLoading(false);
-      } catch (error: any) {
-        console.error('Error loading profile:', error);
-        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    getProfile();
-  }, [refreshKey]);
+    fetchData();
+  }, []);
 
   const onSubmit = async (values: z.infer<typeof customerSchema>) => {
     if (!user) return;
@@ -277,16 +328,27 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
-  }
+  const calculateTotalPaid = () => {
+    return payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  };
+
+  // console.log("loading", loading)
+  // console.log("customer", customer)
+  // console.log("enrollments", enrollments)
+  // console.log("payments", payments)
+  // console.log("user", user)
+  // console.log("userProfile", userProfile)
+
+  // if (loading) {
+  //   return (
+  //     <div className="min-h-screen bg-background">
+  //       <Navigation />
+  //       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+  //         <Loader2 className="h-8 w-8 animate-spin" />
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   if (!customer && !editing) {
     return (
@@ -645,14 +707,14 @@ export default function ProfilePage() {
           </div>
 
           {/* Profile Content */}
-          <Tabs defaultValue="personal" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList>
-              <TabsTrigger value="personal">Personal Details</TabsTrigger>
-              <TabsTrigger value="bookings">Bookings</TabsTrigger>
+              <TabsTrigger value="profile">Profile</TabsTrigger>
+              <TabsTrigger value="sessions">Sessions</TabsTrigger>
               <TabsTrigger value="payments">Payments</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="personal">
+            <TabsContent value="profile">
               <div className="grid gap-6 md:grid-cols-2">
                 <Card className="p-6">
                   <h3 className="text-lg font-semibold mb-4">Contact Information</h3>
@@ -748,125 +810,186 @@ export default function ProfilePage() {
               </div>
             </TabsContent>
 
-            <TabsContent value="bookings">
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Your Bookings</h3>
-                {bookings.length > 0 ? (
-                  <div className="space-y-6">
-                    {bookings.map((booking) => (
-                      <div key={booking.id} className="border rounded-lg p-4">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div className="space-y-2">
-                            <h4 className="font-semibold text-lg">{booking.classes?.name}</h4>
-                            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                              <div className="flex items-center">
-                                <Calendar className="h-4 w-4 mr-1" />
-                                {getDayName(booking.classes?.day_of_week)}
-                              </div>
-                              <div className="flex items-center">
-                                <Clock className="h-4 w-4 mr-1" />
-                                {booking.classes?.start_time} - {booking.classes?.end_time}
-                              </div>
-                              <div className="flex items-center">
-                                <MapPin className="h-4 w-4 mr-1" />
-                                {booking.classes?.venue}
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              <Badge variant={booking.is_free_trial ? 'secondary' : 'default'}>
-                                {booking.is_free_trial ? 'Trial' : booking.term}
+            <TabsContent value="sessions">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Enrolled Sessions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-8">
+                    {enrollments.map((enrollment) => (
+                      <div key={enrollment.id} className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold">
+                              Enrollment #{enrollment.id.slice(0, 8)}
+                            </h3>
+                            <div className="flex gap-2 mt-1">
+                              <Badge variant="outline">
+                                {enrollment.enrollment_type}
                               </Badge>
-                              {booking.booking_date && (
-                                <Badge variant="outline">
-                                  {format(new Date(booking.booking_date), 'dd/MM/yyyy')}
-                                </Badge>
-                              )}
-                              {booking.cancellation_status && (
-                                <Badge
-                                  variant={
-                                    booking.cancellation_status === 'pending' ? 'secondary' :
-                                      booking.cancellation_status === 'accepted' ? 'default' : 'destructive'
-                                  }
-                                >
-                                  Cancellation: {booking.cancellation_status}
-                                </Badge>
-                              )}
+                              <Badge variant={enrollment.status === 'active' ? 'default' : 'secondary'}>
+                                {enrollment.status}
+                              </Badge>
+                              <Badge variant={enrollment.payment_status === 'paid' ? 'default' : 'secondary'}>
+                                {enrollment.payment_status}
+                              </Badge>
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            {!booking.cancellation_status && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleCancelBooking(booking)}
-                              >
-                                <AlertCircle className="h-4 w-4 mr-2" />
-                                Cancel
-                              </Button>
-                            )}
-                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Enrolled on {format(new Date(enrollment.created_at), 'PPP')}
+                          </p>
                         </div>
 
-                        {booking.cancellation_reason && (
-                          <div className="mt-4 pt-4 border-t">
-                            <p className="text-sm font-medium">Cancellation Reason:</p>
-                            <p className="text-sm text-muted-foreground">{booking.cancellation_reason}</p>
-                            {booking.medical_certificate_url && (
-                              <div className="mt-2">
-                                <a
-                                  href={booking.medical_certificate_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sm text-primary hover:underline"
-                                >
-                                  View Medical Certificate
-                                </a>
-                              </div>
-                            )}
+                        <div className="space-y-4">
+                          {enrollment.sessions.map((enrollmentSession) => (
+                            <Card key={enrollmentSession.id}>
+                              <CardContent className="pt-6">
+                                <div className="grid gap-4">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <h3 className="font-medium">{enrollmentSession.session?.name}</h3>
+                                      <p className="text-sm text-gray-500">
+                                        {enrollmentSession.session?.exercise_type?.name}
+                                      </p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      {enrollmentSession.is_free_trial && (
+                                        <Badge variant="secondary">Trial</Badge>
+                                      )}
+                                      {enrollmentSession.enrollment_type === 'partial' && (
+                                        <Badge variant="secondary">Partial</Badge>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                      <p className="text-gray-500">Instructor</p>
+                                      <p>{enrollmentSession.session?.instructor?.name}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-500">Venue</p>
+                                      <p>{enrollmentSession.session?.venue?.name}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-500">Schedule</p>
+                                      <p>{enrollmentSession.session?.day_of_week} at {enrollmentSession.session?.start_time}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-500">Booking Date</p>
+                                      <p>{format(new Date(enrollmentSession.booking_date), 'PPP')}</p>
+                                    </div>
+                                  </div>
+
+                                  {enrollmentSession.is_free_trial && enrollmentSession.trial_date && (
+                                    <div>
+                                      <p className="text-gray-500">Trial Date</p>
+                                      <p>{format(new Date(enrollmentSession.trial_date), 'PPP')}</p>
+                                    </div>
+                                  )}
+
+                                  {enrollmentSession.enrollment_type === 'partial' && enrollmentSession.partial_dates && (
+                                    <div>
+                                      <p className="text-gray-500">Partial Dates</p>
+                                      <div className="flex flex-wrap gap-2 mt-1">
+                                        {enrollmentSession.partial_dates.map((date: string, index: number) => (
+                                          <Badge key={index} variant="outline">
+                                            {format(new Date(date), 'PPP')}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="payments">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment History</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-8">
+                    {enrollments.map((enrollment) => (
+                      <div key={enrollment.id} className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-lg font-semibold">
+                              Enrollment #{enrollment.id.slice(0, 8)}
+                            </h3>
+                            <div className="flex gap-2 mt-1">
+                              <Badge variant="outline">
+                                {enrollment.enrollment_type}
+                              </Badge>
+                              <Badge variant={enrollment.status === 'active' ? 'default' : 'secondary'}>
+                                {enrollment.status}
+                              </Badge>
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Enrolled on {format(new Date(enrollment.created_at), 'PPP')}
+                          </p>
+                        </div>
+
+                        {enrollment.payments && enrollment.payments.length > 0 ? (
+                          <div className="space-y-4">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Receipt #</TableHead>
+                                  <TableHead>Date</TableHead>
+                                  <TableHead>Method</TableHead>
+                                  <TableHead>Amount</TableHead>
+                                  <TableHead>Status</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {enrollment.payments.map((payment) => (
+                                  <TableRow key={payment.id}>
+                                    <TableCell>{payment.receipt_number}</TableCell>
+                                    <TableCell>
+                                      {format(new Date(payment.payment_date), 'PPP')}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline">
+                                        {payment.payment_method}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell>${payment.amount.toFixed(2)}</TableCell>
+                                    <TableCell>
+                                      <Badge variant={payment.payment_status === 'paid' ? 'default' : 'secondary'}>
+                                        {payment.payment_status}
+                                      </Badge>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                            <div className="flex justify-end">
+                              <p className="text-sm font-medium">
+                                Total Paid: ${enrollment.payments.reduce((sum, payment) => sum + (payment.amount || 0), 0).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 text-muted-foreground">
+                            No payments found for this enrollment
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">You don't have any bookings yet.</p>
-                    <Button className="mt-4" asChild>
-                      <a href="/search">Find Classes</a>
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="payments">
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Payment History</h3>
-                {payments.length > 0 ? (
-                  <div className="space-y-4">
-                    {payments.map((payment) => (
-                      <div key={payment.id} className="flex items-center justify-between border-b pb-4">
-                        <div>
-                          <p className="font-medium">Receipt #{payment.receipt_number}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {format(new Date(payment.payment_date), 'dd/MM/yyyy HH:mm')}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {payment.bookings?.classes?.name}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium">${payment.amount.toFixed(2)}</p>
-                          <Badge variant={payment.payment_status === 'completed' ? 'default' : 'secondary'}>
-                            {payment.payment_status}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground">No payment records found.</p>
-                )}
+                </CardContent>
               </Card>
             </TabsContent>
           </Tabs>

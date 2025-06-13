@@ -99,7 +99,7 @@ export async function POST(req: Request) {
               is_free_trial: false,
               booking_date: new Date().toISOString().split('T')[0]
             };
-          }
+        }
         });
 
         const { error: sessionsError } = await supabase
@@ -111,18 +111,18 @@ export async function POST(req: Request) {
         // 3. Create payment record
         const receiptNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
 
-        const { error: paymentError } = await supabase
-          .from('payments')
-          .insert({
+         const { error: paymentError } = await supabase
+         .from('payments')
+         .insert({
             enrollment_id: enrollment.id,
-            amount: paymentIntent.amount/100,
-            payment_method: 'stripe',
-            payment_status: 'completed',
-            transaction_id: paymentIntent.id,
-            receipt_number: receiptNumber,
-            payment_date: new Date().toISOString(),
+           amount: paymentIntent.amount/100,
+           payment_method: 'stripe',
+           payment_status: 'completed',
+           transaction_id: paymentIntent.id,
+           receipt_number: receiptNumber,
+           payment_date: new Date().toISOString(),
             notes: `Payment for enrollment: ${enrollment.id}`,
-          });
+         });
 
         if (paymentError) throw paymentError;
         break;

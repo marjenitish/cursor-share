@@ -1,6 +1,7 @@
 'use client';
 
 import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { createBrowserClient } from '@/lib/supabase/client';
@@ -18,153 +19,196 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
-interface Enrollment {
-  id: string;
-  enrollment_type: string;
-  status: string;
-  payment_status: string;
-  created_at: string;
-  customers: {
-    first_name: string;
-    surname: string;
-    email: string;
-    contact_no: string;
-  } | null;
-  bookings: {
-    id: string;
-    booking_date: string;
-    classes: {
-      id: string;
-      name: string;
-      code: string;
-      venue: string;
-      start_time: string;
-      end_time: string;
-      fee_amount: number;
-    } | null;
-    payments: {
-      id: string;
-      amount: number;
-      payment_method: string;
-      payment_status: string;
-      receipt_number: string;
-      payment_date: string;
-      notes: string;
-    }[];
-  }[];
+declare module 'jspdf' {
+    interface jsPDF {
+        autoTable: (options: any) => jsPDF;
+        lastAutoTable: {
+            finalY: number;
+        };
+    }
 }
+
+type Payment = {
+    id: string;
+    amount: number;
+    payment_method: string;
+    payment_status: string;
+    transaction_id: string | null;
+    receipt_number: string;
+    payment_date: string;
+    notes: string | null;
+};
+
+type Enrollment = {
+    id: string;
+    enrollment_type: string;
+    status: string;
+    payment_status: string;
+    created_at: string;
+    customer: {
+        first_name: string;
+        surname: string;
+        email: string;
+        contact_no: string;
+    };
+    payments: Payment[];
+};
+
+type EnrollmentSession = {
+    id: string;
+    enrollment_id: string;
+    session_id: string;
+    booking_date: string;
+    is_free_trial: boolean;
+    trial_date: string | null;
+    partial_dates: string[] | null;
+    enrollment_type: string;
+    session: {
+        id: string;
+        name: string;
+        code: string;
+        day_of_week: string;
+        start_time: string;
+        end_time: string | null;
+        exercise_type: {
+            id: string;
+            name: string;
+        };
+        instructor: {
+            id: string;
+            first_name: string;
+            last_name: string;
+        };
+        venue: {
+            id: string;
+            name: string;
+        };
+    };
+};
 
 export default function ViewEnrollmentPage() {
   const { id } = useParams<{ id: string }>();
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [enrollmentSessions, setEnrollmentSessions] = useState<EnrollmentSession[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createBrowserClient();
 
   useEffect(() => {
     if (!id) return;
 
     const fetchEnrollment = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('enrollments')
-        .select(
-          `
-          id, enrollment_type, status, payment_status, created_at,
-          customers (first_name, surname, email, contact_no),
-          bookings (
-            id, booking_date,
-            classes (id, name, code, venue, start_time, end_time, fee_amount)
-          ),
-          payments:payments!enrollment_id (
-            id,
-            amount,
-            payment_method,
-            payment_status,
-            transaction_id,
-            receipt_number,
-            payment_date,
-            notes
-          )
-        `
-        )
-        .eq('id', id)
-        .single();
+      setIsLoading(true);
+      try {
+        const { data: enrollmentData, error: enrollmentError } = await supabase
+          .from('enrollments')
+          .select(`
+            *,
+            customer:customers(*),
+            payments:payments(*)
+          `)
+          .eq('id', id)
+          .single();
 
-      console.log("enrollment", data)
+        if (enrollmentError) throw enrollmentError;
+        setEnrollment(enrollmentData);
 
-      if (error) {
-        console.error('Error fetching enrollment:', error);
-        setEnrollment(null);
-      } else {
-        setEnrollment(data as Enrollment);
+        // Fetch enrollment sessions
+        const { data: sessionsData, error: sessionsError } = await supabase
+          .from('enrollment_sessions')
+          .select(`
+            *,
+            session:sessions(
+              *,
+              exercise_type:exercise_types(*),
+              instructor:instructors(*),
+              venue:venues(*)
+            )
+          `)
+          .eq('enrollment_id', id);
+
+        if (sessionsError) throw sessionsError;
+        setEnrollmentSessions(sessionsData || []);
+      } catch (err) {
+        console.error('Error fetching enrollment:', err);
+        setError('Failed to load enrollment details');
+      } finally {
+        setIsLoading(false);
       }
-      setLoading(false);
     };
 
     fetchEnrollment();
   }, [id]);
 
-  const exportReceiptToPdf = () => {
-    if (!enrollment || !enrollment.payments || enrollment.payments.length === 0) {
-      console.error('No payment data available to export.');
-      return;
-    }
-
-    const doc = new jsPDF();
-    let yPos = 10;
-
-    doc.setFontSize(18);
-    doc.text('Payment Receipt', 10, yPos);
-    yPos += 10;
-
-    doc.setFontSize(12);
-    doc.text('Receipt For:', 10, yPos);
-    doc.text(`${enrollment.customers?.first_name} ${enrollment.customers?.surname}`, 10, yPos + 5);
-    doc.text(`${enrollment.customers?.email}`, 10, yPos + 10);
-    if (enrollment.customers?.contact_no) {
-      doc.text(`${enrollment.customers?.contact_no}`, 10, yPos + 15);
-    }
-
-    doc.text('Receipt Number:', 150, yPos, { align: 'right' });
-    doc.text(`${enrollment.payments[0]?.receipt_number || 'N/A'}`, 150, yPos + 5, { align: 'right' });
-    doc.text('Receipt Date:', 150, yPos + 10, { align: 'right' });
-    const receiptDate = enrollment.payments[0]?.payment_date
-      ? format(new Date(enrollment.payments[0]?.payment_date), 'dd/MM/yyyy HH:mm')
-      : 'N/A';
-    doc.text(receiptDate, 150, yPos + 15, { align: 'right' });
-
-    yPos += 30;
-
-    doc.setFontSize(14);
-    doc.text('Items', 10, yPos);
-    yPos += 5;
-
-    doc.setFontSize(10);
-    enrollment.bookings.forEach((booking, index) => {
-      const itemY = yPos + (index * 10);
-      doc.text(`${booking.classes?.code} - ${booking.classes?.name}`, 10, itemY);
-      doc.text(format(new Date(booking.booking_date), 'dd/MM/yyyy'), 80, itemY);
-      doc.text(`$${booking.classes?.fee_amount.toFixed(2)}`, 150, itemY, { align: 'right' });
-    });
-
-    yPos += (enrollment.bookings.length * 10) + 10;
-
-    doc.setFontSize(12);
-    doc.text('Total:', 150, yPos, { align: 'right' });
-    doc.text(`$${totalCost.toFixed(2)}`, 180, yPos, { align: 'right' });
-    yPos += 5;
-    doc.setFontSize(10);
-    doc.text('Amount Paid:', 150, yPos, { align: 'right' });
-    doc.text(`$${totalPaid.toFixed(2)}`, 180, yPos, { align: 'right' });
-    yPos += 5;
-    doc.text('Payment Method:', 150, yPos, { align: 'right' });
-    doc.text(`${enrollment.payments[0]?.payment_method || 'N/A'}`, 180, yPos, { align: 'right' });
-
-    const filename = `Receipt_Enrollment_${enrollment.id.slice(0, 8)}.pdf`;
-    doc.save(filename);
+  const calculateTotalPaid = () => {
+    if (!enrollment?.payments) return 0;
+    return enrollment.payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
   };
 
-  if (loading) {
+  const exportReceiptToPdf = () => {
+    if (!enrollment || !enrollment.payments || enrollment.payments.length === 0) return;
+
+    const latestPayment = enrollment.payments[enrollment.payments.length - 1];
+    const doc = new jsPDF();
+    let yPos = 20;
+
+    // Header
+    doc.setFontSize(20);
+    doc.text('Payment Receipt', 105, yPos, { align: 'center' });
+    yPos += 20;
+
+    // Receipt Details
+    doc.setFontSize(12);
+    doc.text('Receipt For:', 10, yPos);
+    doc.text(`${enrollment.customer?.first_name} ${enrollment.customer?.surname}`, 10, yPos + 5);
+    doc.text(`${enrollment.customer?.email}`, 10, yPos + 10);
+    if (enrollment.customer?.contact_no) {
+      doc.text(`${enrollment.customer?.contact_no}`, 10, yPos + 15);
+    }
+    yPos += 25;
+
+    // Payment Details
+    doc.text('Payment Details:', 10, yPos);
+    doc.text(`Receipt Number: ${latestPayment.receipt_number}`, 10, yPos + 5);
+    doc.text(`Payment Method: ${latestPayment.payment_method}`, 10, yPos + 10);
+    doc.text(`Payment Date: ${format(new Date(latestPayment.payment_date), 'PPP')}`, 10, yPos + 15);
+    yPos += 25;
+
+    // Sessions Table Header
+    doc.setFontSize(12);
+    doc.text('Enrolled Sessions:', 10, yPos);
+    yPos += 10;
+
+    const tableHeaders = ['Session', 'Type', 'Schedule', 'Venue'];
+    const tableData = enrollmentSessions.map(session => [
+      session.session?.name || '',
+      session.is_free_trial ? 'Trial' : session.enrollment_type === 'partial' ? 'Partial' : 'Full',
+      `${session.session?.day_of_week} at ${session.session?.start_time}`,
+      session.session?.venue?.name || ''
+    ]);
+
+    doc.autoTable({
+      startY: yPos,
+      head: [tableHeaders],
+      body: tableData,
+      theme: 'grid',
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [41, 128, 185] }
+    });
+
+    // Total Amount
+    doc.setFontSize(12);
+    doc.text(`Total Amount: $${latestPayment.amount.toFixed(2)}`, 10, doc.lastAutoTable.finalY + 10);
+
+    // Footer
+    const pageHeight = doc.internal.pageSize.height;
+    doc.setFontSize(10);
+    doc.text('Thank you for your business!', 105, pageHeight - 20, { align: 'center' });
+
+    doc.save(`receipt-${latestPayment.receipt_number}.pdf`);
+  };
+
+  if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -172,18 +216,16 @@ export default function ViewEnrollmentPage() {
     );
   }
 
-  if (!enrollment) {
+  if (error || !enrollment) {
     return (
-      <div className="text-center text-red-500">Enrollment not found.</div>
+      <div className="text-center text-red-500">
+        {error || 'Enrollment not found'}
+      </div>
     );
   }
 
-  const totalCost = enrollment.bookings.reduce(
-    (sum, booking) => sum + (booking.classes?.fee_amount || 0),
-    0
-  );
-
-  const totalPaid = enrollment?.payments[0].amount
+  console.log("enrollment", enrollment)
+  console.log("enrollmentSessions", enrollmentSessions)
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
@@ -191,201 +233,202 @@ export default function ViewEnrollmentPage() {
         Enrollment Details (ID: {enrollment.id.slice(0, 8)})
       </h1>
 
-      <Tabs defaultValue="enrollment">
+      <Tabs defaultValue="details">
         <TabsList>
-          <TabsTrigger value="enrollment">Enrollment Information</TabsTrigger>
-          <TabsTrigger value="bookings">Class Bookings</TabsTrigger>
-          <TabsTrigger value="payment">Payment Receipt</TabsTrigger>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          <TabsTrigger value="payment">Payment History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="enrollment" className="mt-4">
+        <TabsContent value="details" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>General Information</CardTitle>
+              <CardTitle>Enrollment Information</CardTitle>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
+            <CardContent>
+              <div className="grid gap-4">
                 <div>
-                  <p className="text-sm text-muted-foreground">Enrollment Type</p>
-                  <p className="text-base capitalize">{enrollment.enrollment_type}</p>
+                  <h3 className="font-medium">Customer</h3>
+                  <p>{enrollment.customer?.first_name} {enrollment.customer?.surname}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Status</p>
-                  <Badge className="capitalize">{enrollment.status}</Badge>
+                  <h3 className="font-medium">Enrollment Type</h3>
+                  <p>{enrollment.enrollment_type}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Payment Status</p>
-                  <Badge className="capitalize">{enrollment.payment_status}</Badge>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Customer Name</p>
-                  <p className="text-base">
-                    {enrollment.customers?.first_name} {enrollment.customers?.surname}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Customer Email</p>
-                  <p className="text-base">{enrollment.customers?.email}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Customer Contact</p>
-                  <p className="text-base">{enrollment.customers?.contact_no || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Enrolled Date</p>
-                  <p className="text-base">
-                    {format(new Date(enrollment.created_at), 'dd/MM/yyyy HH:mm')}
-                  </p>
+                  <h3 className="font-medium">Payment</h3>
+                  <p>Method: {enrollment.payments[0]?.payment_method}</p>
+                  <p>Amount: ${enrollment.payments[0]?.amount}</p>
+                  <p>Receipt: {enrollment.payments[0]?.receipt_number}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="bookings" className="mt-4">
+        <TabsContent value="sessions" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Class Bookings</CardTitle>
+              <CardTitle>Enrolled Sessions</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Class Code</TableHead>
-                    <TableHead>Class Name</TableHead>
-                    <TableHead>Class Date</TableHead>
-                    <TableHead>Venue</TableHead>
-                    <TableHead className="text-right">Fee</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {enrollment.bookings.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center">
-                        No classes booked for this enrollment.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    enrollment.bookings.map((booking) => (
-                      <TableRow key={booking.id}>
-                        <TableCell>{booking.classes?.code}</TableCell>
-                        <TableCell>{booking.classes?.name}</TableCell>
-                        <TableCell>
-                          {format(new Date(booking.booking_date), 'dd/MM/yyyy')}
-                        </TableCell>
-                        <TableCell>{booking.classes?.venue}</TableCell>
-                        <TableCell className="text-right">
-                          ${booking.classes?.fee_amount.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+              <div className="space-y-4">
+                {enrollmentSessions.map((enrollmentSession) => (
+                  <Card key={enrollmentSession.id}>
+                    <CardContent className="pt-6">
+                      <div className="grid gap-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-medium">{enrollmentSession.session?.name}</h3>
+                            <p className="text-sm text-gray-500">
+                              {enrollmentSession.session?.exercise_type?.name}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            {enrollmentSession.is_free_trial && (
+                              <Badge variant="secondary">Trial</Badge>
+                            )}
+                            {enrollmentSession.enrollment_type === 'partial' && (
+                              <Badge variant="secondary">Partial</Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <p className="text-gray-500">Instructor</p>
+                            <p>{enrollmentSession.session?.instructor?.first_name} {enrollmentSession.session?.instructor?.last_name}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Venue</p>
+                            <p>{enrollmentSession.session?.venue?.name}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Schedule</p>
+                            <p>{enrollmentSession.session?.day_of_week} at {enrollmentSession.session?.start_time}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Booking Date</p>
+                            <p>{format(new Date(enrollmentSession.booking_date), 'PPP')}</p>
+                          </div>
+                        </div>
+
+                        {enrollmentSession.is_free_trial && enrollmentSession.trial_date && (
+                          <div>
+                            <p className="text-gray-500">Trial Date</p>
+                            <p>{format(new Date(enrollmentSession.trial_date), 'PPP')}</p>
+                          </div>
+                        )}
+
+                        {enrollmentSession.enrollment_type === 'partial' && enrollmentSession.partial_dates && (
+                          <div>
+                            <p className="text-gray-500">Partial Dates</p>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {enrollmentSession.partial_dates.map((date: string, index: number) => (
+                                <Badge key={index} variant="outline">
+                                  {format(new Date(date), 'PPP')}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="payment" className="mt-4">
           <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Payment Receipt</CardTitle>
-                <button onClick={() => exportReceiptToPdf()} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Export to PDF</button>
-              <CardTitle>Payment Receipt</CardTitle>
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Payment History</CardTitle>
+              <button onClick={() => exportReceiptToPdf()} className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Export Latest Receipt</button>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Receipt For:</p>
-                  <p className="text-lg font-semibold">
-                    {enrollment.customers?.first_name} {enrollment.customers?.surname}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {enrollment.customers?.email}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {enrollment.customers?.contact_no}
-                  </p>
-                </div>
-                <div className="space-y-2 text-left md:text-right">
-                  <p className="text-sm text-muted-foreground">Receipt Number:</p>
-                  <p className="text-lg font-semibold">
-                    {enrollment.payments[0]?.receipt_number || 'N/A'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Receipt Date:</p>
-                  <p className="text-base">
-                    {enrollment.payments[0]?.payment_date
-                      ? format(new Date(enrollment.payments[0]?.payment_date), 'dd/MM/yyyy HH:mm')
-                      : 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-lg font-semibold mb-4">Items</h4>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Class</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {enrollment.bookings.map((booking) => (
-                      <TableRow key={booking.id}>
-                        <TableCell>
-                          {booking.classes?.code} - {booking.classes?.name} ({booking.classes?.venue})
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(booking.booking_date), 'dd/MM/yyyy')}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          ${booking.classes?.fee_amount.toFixed(2)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="flex justify-end">
-                <div className="w-full md:w-1/2 space-y-2">
-                  <div className="flex justify-between font-medium">
-                    <span>Total:</span>
-                    <span>${totalCost.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Amount Paid:</span>
-                    <span>${totalPaid.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Payment Method:</span>
-                    <span className="capitalize">
-                      {enrollment.payments[0]?.payment_method || 'N/A'}
-                    </span>
-                  </div>
-                  {enrollment.payments[0]?.transaction_id && (
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Transaction ID:</span>
-                      <span>{enrollment.payments[0]?.transaction_id}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {enrollment.payments[0]?.notes && (
+            <CardContent>
+              <div className="space-y-6">
                 <div>
-                  <h4 className="text-lg font-semibold mb-2">Notes</h4>
+                  <p className="text-sm text-muted-foreground">Customer:</p>
+                  <p className="text-lg font-semibold">
+                    {enrollment.customer?.first_name} {enrollment.customer?.surname}
+                  </p>
                   <p className="text-sm text-muted-foreground">
-                    {enrollment.payments[0]?.notes}
+                    {enrollment.customer?.email}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {enrollment.customer?.contact_no}
                   </p>
                 </div>
-              )}
+
+                <div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Receipt Number</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Method</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {enrollment.payments?.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>{payment.receipt_number}</TableCell>
+                          <TableCell>
+                            {format(new Date(payment.payment_date), 'dd/MM/yyyy HH:mm')}
+                          </TableCell>
+                          <TableCell className="capitalize">{payment.payment_method}</TableCell>
+                          <TableCell>${payment.amount.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Badge variant={payment.payment_status === 'completed' ? 'default' : 'secondary'}>
+                              {payment.payment_status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between font-medium">
+                    <span>Total Paid:</span>
+                    <span>${calculateTotalPaid().toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-lg font-semibold mb-4">Enrolled Sessions</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Session</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Schedule</TableHead>
+                        <TableHead>Venue</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {enrollmentSessions.map((session) => (
+                        <TableRow key={session.id}>
+                          <TableCell>{session.session?.name}</TableCell>
+                          <TableCell>
+                            {session.is_free_trial ? 'Trial' : 
+                             session.enrollment_type === 'partial' ? 'Partial' : 'Full'}
+                          </TableCell>
+                          <TableCell>
+                            {session.session?.day_of_week} at {session.session?.start_time}
+                          </TableCell>
+                          <TableCell>{session.session?.venue?.name}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

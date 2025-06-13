@@ -17,6 +17,12 @@ import { EnrollmentWizard } from './components/enrollment-wizard';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { AuthCheckModal } from './components/auth-check-modal';
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { format as dateFormat } from "date-fns";
+import { format as timeFormat } from "date-fns";
 
 type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
 
@@ -76,6 +82,11 @@ const STORAGE_KEYS = {
     SELECTED_SESSIONS: 'easy_enroll_selected_sessions',
 };
 
+type SelectedSession = {
+    id: string;
+    trialDate?: string; // ISO string format of the date
+};
+
 export default function EasyEnrollPage() {
     const supabase = createBrowserClient();
     const [sessions, setSessions] = useState<Session[]>([]);
@@ -88,6 +99,7 @@ export default function EasyEnrollPage() {
     const [selectedExerciseType, setSelectedExerciseType] = useState<string | null>(null);
     const [isAuthCheckOpen, setIsAuthCheckOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
+    const [trialDates, setTrialDates] = useState<Record<string, Date | undefined>>({});
 
     // Load saved state from localStorage on initial load
     useEffect(() => {
@@ -100,8 +112,17 @@ export default function EasyEnrollPage() {
 
         if (savedSessions) {
             try {
-                const parsedSessions = JSON.parse(savedSessions);
-                setSelectedSessions(new Set(parsedSessions));
+                const parsedSessions: SelectedSession[] = JSON.parse(savedSessions);
+                setSelectedSessions(new Set(parsedSessions.map(s => s.id)));
+                
+                // Restore trial dates
+                const trialDatesMap: Record<string, Date> = {};
+                parsedSessions.forEach(session => {
+                    if (session.trialDate) {
+                        trialDatesMap[session.id] = new Date(session.trialDate);
+                    }
+                });
+                setTrialDates(trialDatesMap);
             } catch (error) {
                 console.error('Error parsing saved sessions:', error);
             }
@@ -121,11 +142,15 @@ export default function EasyEnrollPage() {
     // Save selected sessions to localStorage when they change
     useEffect(() => {
         if (selectedSessions.size > 0) {
-            localStorage.setItem(STORAGE_KEYS.SELECTED_SESSIONS, JSON.stringify(Array.from(selectedSessions)));
+            const sessionsToSave: SelectedSession[] = Array.from(selectedSessions).map(id => ({
+                id,
+                trialDate: trialDates[id]?.toISOString()
+            }));
+            localStorage.setItem(STORAGE_KEYS.SELECTED_SESSIONS, JSON.stringify(sessionsToSave));
         } else {
             localStorage.removeItem(STORAGE_KEYS.SELECTED_SESSIONS);
         }
-    }, [selectedSessions]);
+    }, [selectedSessions, trialDates]);
 
     // Fetch exercise types
     useEffect(() => {
@@ -249,6 +274,12 @@ export default function EasyEnrollPage() {
             const newSet = new Set(prev);
             if (newSet.has(sessionId)) {
                 newSet.delete(sessionId);
+                // Clear trial date when removing session
+                setTrialDates(prev => {
+                    const newDates = { ...prev };
+                    delete newDates[sessionId];
+                    return newDates;
+                });
             } else {
                 newSet.add(sessionId);
             }
@@ -256,10 +287,39 @@ export default function EasyEnrollPage() {
         });
     };
 
+    const handleTrialDateSelect = (sessionId: string, date: Date | undefined) => {
+        setTrialDates(prev => ({
+            ...prev,
+            [sessionId]: date
+        }));
+    };
+
+    const isDateInTermRange = (date: Date, session: Session) => {
+        if (!session.terms?.start_date || !session.terms?.end_date) return false;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate date comparison
+        
+        const startDate = new Date(session.terms.start_date);
+        const endDate = new Date(session.terms.end_date);
+        
+        // Check if date is before today
+        if (date < today) return false;
+        
+        // Check if date is within term range
+        if (date < startDate || date > endDate) return false;
+
+        // Check if date matches the session's day of week
+        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' });
+        return dayOfWeek === session.day_of_week;
+    };
+
     const calculateTotalFee = () => {
         return Array.from(selectedSessions).reduce((total, sessionId) => {
-            const session = sessions.find(s => s.id === sessionId);
-            return total + (session?.fee_amount || 0);
+            const session = allSessions.find(s => s.id === sessionId);
+            if (!session) return total;
+            // If trial date is selected, fee is 0
+            return total + (trialDates[sessionId] ? 0 : session.fee_amount);
         }, 0);
     };
 
@@ -269,12 +329,19 @@ export default function EasyEnrollPage() {
             newSet.delete(sessionId);
             return newSet;
         });
+        // Clear trial date when removing session
+        setTrialDates(prev => {
+            const newDates = { ...prev };
+            delete newDates[sessionId];
+            return newDates;
+        });
     };
 
     // Clear cart function
     const clearCart = () => {
         setSelectedExerciseType(null);
         setSelectedSessions(new Set());
+        setTrialDates({});
         localStorage.removeItem(STORAGE_KEYS.SELECTED_EXERCISE_TYPE);
         localStorage.removeItem(STORAGE_KEYS.SELECTED_SESSIONS);
     };
@@ -307,9 +374,41 @@ export default function EasyEnrollPage() {
         return Array.from(selectedTypes);
     };
 
-    console.log("selectedExerciseType", selectedExerciseType);
-    console.log("selectedSessions", selectedSessions);
-    console.log("sessions", sessions);
+    const getNextAvailableDate = (session: Session): Date => {
+        const today = new Date();
+        const startDate = new Date(session.terms?.start_date || '');
+        const endDate = new Date(session.terms?.end_date || '');
+        
+        // If today is after end date, return start date
+        if (today > endDate) return startDate;
+        
+        // If today is before start date, return start date
+        if (today < startDate) return startDate;
+
+        // Get the day of week number (0-6, where 0 is Sunday)
+        const sessionDayNumber = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].indexOf(session.day_of_week);
+        const todayDayNumber = today.getDay();
+
+        // Calculate days until next session day
+        let daysUntilNext = sessionDayNumber - todayDayNumber;
+        if (daysUntilNext <= 0) {
+            daysUntilNext += 7; // Add a week if the day has passed
+        }
+
+        // Create date for next session
+        const nextDate = new Date(today);
+        nextDate.setDate(today.getDate() + daysUntilNext);
+
+        // If next date is after end date, return start date
+        if (nextDate > endDate) return startDate;
+
+        return nextDate;
+    };
+
+    // console.log("selectedExerciseType", selectedExerciseType);
+    // console.log("selectedSessions", selectedSessions);
+    // console.log("sessions", sessions);
+    console.log("trialDate", trialDates);
 
     return (
         <div className="min-h-screen bg-background">
@@ -539,13 +638,73 @@ export default function EasyEnrollPage() {
                                                         <div className="text-sm text-muted-foreground">
                                                             {session.instructor?.name}
                                                         </div>
-                                                        <div className="flex justify-between items-center pt-2">
-                                                            <span className="font-medium text-primary">
-                                                                ${session.fee_amount.toFixed(2)}
-                                                            </span>
-                                                            {session.is_subsidised && (
-                                                                <Badge variant="secondary" className="bg-primary/10 text-primary">Subsidised</Badge>
+                                                        <div className="flex flex-col space-y-2 pt-2">
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`trial-${session.id}`}
+                                                                    checked={!!trialDates[session.id]}
+                                                                    onCheckedChange={(checked) => {
+                                                                        if (checked) {
+                                                                            const nextDate = getNextAvailableDate(session);
+                                                                            handleTrialDateSelect(session.id, nextDate);
+                                                                        } else {
+                                                                            handleTrialDateSelect(session.id, undefined);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <Label htmlFor={`trial-${session.id}`} className="text-sm">
+                                                                    Book as Trial Class
+                                                                </Label>
+                                                            </div>
+                                                            {trialDates[session.id] && (
+                                                                <div className="flex items-center space-x-2">
+                                                                    <Popover>
+                                                                        <PopoverTrigger asChild>
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                className={cn(
+                                                                                    "w-[240px] justify-start text-left font-normal",
+                                                                                    !trialDates[session.id] && "text-muted-foreground"
+                                                                                )}
+                                                                            >
+                                                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                                                {trialDates[session.id] ? (
+                                                                                    dateFormat(trialDates[session.id]!, "PPP")
+                                                                                ) : (
+                                                                                    <span>Pick a date</span>
+                                                                                )}
+                                                                            </Button>
+                                                                        </PopoverTrigger>
+                                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                                            <Calendar
+                                                                                mode="single"
+                                                                                selected={trialDates[session.id]}
+                                                                                onSelect={(date) => handleTrialDateSelect(session.id, date)}
+                                                                                disabled={(date) => !isDateInTermRange(date, session)}
+                                                                                initialFocus
+                                                                                className="rounded-md border"
+                                                                                modifiers={{
+                                                                                    available: (date) => isDateInTermRange(date, session)
+                                                                                }}
+                                                                                modifiersStyles={{
+                                                                                    available: {
+                                                                                        fontWeight: 'bold',
+                                                                                        color: 'var(--primary)'
+                                                                                    }
+                                                                                }}
+                                                                            />
+                                                                        </PopoverContent>
+                                                                    </Popover>
+                                                                </div>
                                                             )}
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="font-medium text-primary">
+                                                                    ${trialDates[session.id] ? '0.00' : session.fee_amount.toFixed(2)}
+                                                                </span>
+                                                                {session.is_subsidised && !trialDates[session.id] && (
+                                                                    <Badge variant="secondary" className="bg-primary/10 text-primary">Subsidised</Badge>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </CardContent>

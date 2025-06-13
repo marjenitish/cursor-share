@@ -26,7 +26,7 @@ import { format as timeFormat } from "date-fns";
 
 type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
 
-interface Session {
+export interface Session {
     id: string;
     name: string;
     code: string;
@@ -84,7 +84,27 @@ const STORAGE_KEYS = {
 
 type SelectedSession = {
     id: string;
-    trialDate?: string; // ISO string format of the date
+    trialDate?: string;
+    partialDates?: string[]; // Array of ISO date strings
+};
+
+type EnrollmentSessionData = {
+    session_id: string;
+    enrollment_type: 'full' | 'trial' | 'partial';
+    trial_date?: string;
+    partial_dates?: string[];
+    fee_amount: number;
+    session_details: {
+        name: string;
+        code: string;
+        day_of_week: string;
+        start_time: string;
+        end_time?: string;
+        venue_id: string;
+        instructor_id: string;
+        exercise_type_id: string;
+        term_id: string;
+    };
 };
 
 export default function EasyEnrollPage() {
@@ -100,6 +120,7 @@ export default function EasyEnrollPage() {
     const [isAuthCheckOpen, setIsAuthCheckOpen] = useState(false);
     const [user, setUser] = useState<any>(null);
     const [trialDates, setTrialDates] = useState<Record<string, Date | undefined>>({});
+    const [partialDates, setPartialDates] = useState<Record<string, Date[]>>({});
 
     // Load saved state from localStorage on initial load
     useEffect(() => {
@@ -117,12 +138,19 @@ export default function EasyEnrollPage() {
                 
                 // Restore trial dates
                 const trialDatesMap: Record<string, Date> = {};
+                const partialDatesMap: Record<string, Date[]> = {};
+                
                 parsedSessions.forEach(session => {
                     if (session.trialDate) {
                         trialDatesMap[session.id] = new Date(session.trialDate);
                     }
+                    if (session.partialDates) {
+                        partialDatesMap[session.id] = session.partialDates.map(date => new Date(date));
+                    }
                 });
+                
                 setTrialDates(trialDatesMap);
+                setPartialDates(partialDatesMap);
             } catch (error) {
                 console.error('Error parsing saved sessions:', error);
             }
@@ -144,13 +172,14 @@ export default function EasyEnrollPage() {
         if (selectedSessions.size > 0) {
             const sessionsToSave: SelectedSession[] = Array.from(selectedSessions).map(id => ({
                 id,
-                trialDate: trialDates[id]?.toISOString()
+                trialDate: trialDates[id]?.toISOString(),
+                partialDates: partialDates[id]?.map(date => date.toISOString())
             }));
             localStorage.setItem(STORAGE_KEYS.SELECTED_SESSIONS, JSON.stringify(sessionsToSave));
         } else {
             localStorage.removeItem(STORAGE_KEYS.SELECTED_SESSIONS);
         }
-    }, [selectedSessions, trialDates]);
+    }, [selectedSessions, trialDates, partialDates]);
 
     // Fetch exercise types
     useEffect(() => {
@@ -294,6 +323,13 @@ export default function EasyEnrollPage() {
         }));
     };
 
+    const handlePartialDateSelect = (sessionId: string, dates: Date[]) => {
+        setPartialDates(prev => ({
+            ...prev,
+            [sessionId]: dates
+        }));
+    };
+
     const isDateInTermRange = (date: Date, session: Session) => {
         if (!session.terms?.start_date || !session.terms?.end_date) return false;
         
@@ -314,13 +350,39 @@ export default function EasyEnrollPage() {
         return dayOfWeek === session.day_of_week;
     };
 
+    const calculateSessionFee = (session: Session, sessionId: string) => {
+        // If trial date is selected, fee is 0
+        if (trialDates[sessionId]) return 0;
+
+        // If partial dates are selected, calculate proportional fee
+        if (partialDates[sessionId]?.length) {
+            const totalWeeks = getTotalWeeksInTerm(session);
+            const selectedWeeks = partialDates[sessionId].length;
+            const proportionalFee = (session.fee_amount / totalWeeks) * selectedWeeks;
+            return proportionalFee;
+        }
+
+        // Full term fee
+        return session.fee_amount;
+    };
+
     const calculateTotalFee = () => {
-        return Array.from(selectedSessions).reduce((total, sessionId) => {
+        let total = 0;
+        Array.from(selectedSessions).forEach(sessionId => {
             const session = allSessions.find(s => s.id === sessionId);
-            if (!session) return total;
-            // If trial date is selected, fee is 0
-            return total + (trialDates[sessionId] ? 0 : session.fee_amount);
-        }, 0);
+            if (session) {
+                total += calculateSessionFee(session, sessionId);
+            }
+        });
+        return total;
+    };
+
+    const getTotalWeeksInTerm = (session: Session) => {
+        if (!session.terms?.start_date || !session.terms?.end_date) return 0;
+        const startDate = new Date(session.terms.start_date);
+        const endDate = new Date(session.terms.end_date);
+        const weeks = Math.ceil((endDate.getTime() - startDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
+        return weeks;
     };
 
     const removeSession = (sessionId: string) => {
@@ -342,6 +404,7 @@ export default function EasyEnrollPage() {
         setSelectedExerciseType(null);
         setSelectedSessions(new Set());
         setTrialDates({});
+        setPartialDates({});
         localStorage.removeItem(STORAGE_KEYS.SELECTED_EXERCISE_TYPE);
         localStorage.removeItem(STORAGE_KEYS.SELECTED_SESSIONS);
     };
@@ -405,10 +468,49 @@ export default function EasyEnrollPage() {
         return nextDate;
     };
 
+    const getEnrollmentSessionsData = () => {
+        return Array.from(selectedSessions)
+            .map(id => {
+                const session = allSessions.find(s => s.id === id);
+                if (!session) return null;
+
+                const enrollmentData: EnrollmentSessionData = {
+                    session_id: session.id,
+                    enrollment_type: trialDates[id] ? 'trial' : 
+                                  partialDates[id]?.length ? 'partial' : 'full',
+                    fee_amount: calculateSessionFee(session, id),
+                    session_details: {
+                        name: session.name,
+                        code: session.code,
+                        day_of_week: session.day_of_week,
+                        start_time: session.start_time,
+                        end_time: session.end_time || undefined,
+                        venue_id: session.venue_id,
+                        instructor_id: session.instructor_id,
+                        exercise_type_id: session.exercise_type_id || '',
+                        term_id: session.term_id.toString()
+                    }
+                };
+
+                // Add trial date if exists
+                if (trialDates[id]) {
+                    enrollmentData.trial_date = trialDates[id]?.toISOString();
+                }
+
+                // Add partial dates if exist
+                if (partialDates[id]?.length) {
+                    enrollmentData.partial_dates = partialDates[id]?.map(date => date.toISOString());
+                }
+
+                return enrollmentData;
+            })
+            .filter((data): data is EnrollmentSessionData => data !== null);
+    };
+
     // console.log("selectedExerciseType", selectedExerciseType);
-    // console.log("selectedSessions", selectedSessions);
+    console.log("selectedSessions", selectedSessions);
     // console.log("sessions", sessions);
-    console.log("trialDate", trialDates);
+    // console.log("trialDate", trialDates);
 
     return (
         <div className="min-h-screen bg-background">
@@ -541,7 +643,7 @@ export default function EasyEnrollPage() {
                                                                             </TableCell>
                                                                             <TableCell>{session.instructor?.name}</TableCell>
                                                                             <TableCell>
-                                                                                ${session.fee_amount.toFixed(2)}
+                                                                                ${calculateSessionFee(session, session.id).toFixed(2)}
                                                                             </TableCell>
                                                                         </TableRow>
                                                                     ))}
@@ -647,6 +749,8 @@ export default function EasyEnrollPage() {
                                                                         if (checked) {
                                                                             const nextDate = getNextAvailableDate(session);
                                                                             handleTrialDateSelect(session.id, nextDate);
+                                                                            // Clear partial dates if trial is selected
+                                                                            handlePartialDateSelect(session.id, []);
                                                                         } else {
                                                                             handleTrialDateSelect(session.id, undefined);
                                                                         }
@@ -654,6 +758,26 @@ export default function EasyEnrollPage() {
                                                                 />
                                                                 <Label htmlFor={`trial-${session.id}`} className="text-sm">
                                                                     Book as Trial Class
+                                                                </Label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <Checkbox
+                                                                    id={`partial-${session.id}`}
+                                                                    checked={!!partialDates[session.id]?.length}
+                                                                    onCheckedChange={(checked) => {
+                                                                        if (checked) {
+                                                                            // Initialize with next available date
+                                                                            const nextDate = getNextAvailableDate(session);
+                                                                            handlePartialDateSelect(session.id, [nextDate]);
+                                                                            // Clear trial date if partial is selected
+                                                                            handleTrialDateSelect(session.id, undefined);
+                                                                        } else {
+                                                                            handlePartialDateSelect(session.id, []);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <Label htmlFor={`partial-${session.id}`} className="text-sm">
+                                                                    Book Partial Classes
                                                                 </Label>
                                                             </div>
                                                             {trialDates[session.id] && (
@@ -697,11 +821,60 @@ export default function EasyEnrollPage() {
                                                                     </Popover>
                                                                 </div>
                                                             )}
+                                                            {partialDates[session.id]?.length > 0 && (
+                                                                <div className="space-y-2">
+                                                                    <div className="flex items-center space-x-2">
+                                                                        <Popover>
+                                                                            <PopoverTrigger asChild>
+                                                                                <Button
+                                                                                    variant="outline"
+                                                                                    className={cn(
+                                                                                        "w-[240px] justify-start text-left font-normal",
+                                                                                        !partialDates[session.id]?.length && "text-muted-foreground"
+                                                                                    )}
+                                                                                >
+                                                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                                                    <span>Select Dates</span>
+                                                                                </Button>
+                                                                            </PopoverTrigger>
+                                                                            <PopoverContent className="w-auto p-0" align="start">
+                                                                                <Calendar
+                                                                                    mode="multiple"
+                                                                                    selected={partialDates[session.id]}
+                                                                                    onSelect={(dates) => handlePartialDateSelect(session.id, dates || [])}
+                                                                                    disabled={(date) => !isDateInTermRange(date, session)}
+                                                                                    initialFocus
+                                                                                    className="rounded-md border"
+                                                                                />
+                                                                            </PopoverContent>
+                                                                        </Popover>
+                                                                    </div>
+                                                                    <div className="flex flex-wrap gap-2">
+                                                                        {partialDates[session.id]?.map((date, index) => (
+                                                                            <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                                                                                {dateFormat(date, "MMM d, yyyy")}
+                                                                                <Button
+                                                                                    variant="ghost"
+                                                                                    size="icon"
+                                                                                    className="h-4 w-4 p-0 hover:bg-transparent"
+                                                                                    onClick={() => {
+                                                                                        const newDates = [...partialDates[session.id]];
+                                                                                        newDates.splice(index, 1);
+                                                                                        handlePartialDateSelect(session.id, newDates);
+                                                                                    }}
+                                                                                >
+                                                                                    <X className="h-3 w-3" />
+                                                                                </Button>
+                                                                            </Badge>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                             <div className="flex justify-between items-center">
                                                                 <span className="font-medium text-primary">
-                                                                    ${trialDates[session.id] ? '0.00' : session.fee_amount.toFixed(2)}
+                                                                    ${calculateSessionFee(session, session.id).toFixed(2)}
                                                                 </span>
-                                                                {session.is_subsidised && !trialDates[session.id] && (
+                                                                {session.is_subsidised && !trialDates[session.id] && !partialDates[session.id]?.length && (
                                                                     <Badge variant="secondary" className="bg-primary/10 text-primary">Subsidised</Badge>
                                                                 )}
                                                             </div>
@@ -728,8 +901,11 @@ export default function EasyEnrollPage() {
                     setIsWizardOpen(false);
                     clearCart();
                 }}
-                selectedSessions={Array.from(selectedSessions).map(id => sessions.find(s => s.id === id)).filter(Boolean)}
+                selectedSessions={Array.from(selectedSessions)
+                    .map(id => allSessions.find(s => s.id === id))
+                    .filter((session): session is Session => session !== null)}
                 totalAmount={calculateTotalFee()}
+                enrollmentSessionsData={getEnrollmentSessionsData()}
             />
         </div>
     );

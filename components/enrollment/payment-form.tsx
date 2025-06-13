@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { CreditCard, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import type { Session } from '@/app/easy-enroll/page';
+import type { EnrollmentSessionData } from '@/app/easy-enroll/components/enrollment-wizard';
 
 // Initialize Stripe with publishable key
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY 
@@ -14,7 +16,8 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   : null;
 
 interface CheckoutFormProps {
-  selectedClasses: any[];
+  selectedClasses: Session[];
+  enrollmentSessionsData: EnrollmentSessionData[];
   enrollmentData: any;
   enrollmentId: string;
   onComplete: () => void;
@@ -22,7 +25,7 @@ interface CheckoutFormProps {
   customer: any;
 }
 
-function CheckoutForm({ selectedClasses, enrollmentData, enrollmentId, onComplete, totalAmount, customer }: CheckoutFormProps) {
+function CheckoutForm({ selectedClasses, enrollmentSessionsData, enrollmentData, enrollmentId, onComplete, totalAmount, customer }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
@@ -41,26 +44,26 @@ function CheckoutForm({ selectedClasses, enrollmentData, enrollmentId, onComplet
     setLoading(true);
 
     try {
-      // Submit the Elements form first
       const { error: submitError } = await elements.submit();
       if (submitError) {
         throw submitError;
       }
 
-      // Create payment intent
       const response = await fetch('/api/stripe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: Math.round(totalAmount * 100),
           currency: 'aud',
-          metadata: {
-            selectedClasses: selectedClasses.map(cls => cls.id).join(','),
-            enrollmentId: enrollmentId,
-            customerEmail: customer.email,
-            customerName: `${customer.first_name} ${customer.surname}`,
-            classCount: selectedClasses.length,
-            classIds: selectedClasses.map(cls => cls.id).join(',')
+          metadata: {      
+            customerId: customer.id,
+            enrollmentData: JSON.stringify(enrollmentSessionsData.map(session => ({
+              id: session.session_id,
+              type: session.enrollment_type,
+              dates: session.enrollment_type === 'trial' ? session.trial_date :
+                     session.enrollment_type === 'partial' ? session.partial_dates?.join(',') : 'full',
+              fee: session.fee_amount
+            })))
           },
         }),
       });
@@ -129,15 +132,23 @@ function CheckoutForm({ selectedClasses, enrollmentData, enrollmentId, onComplet
   );
 }
 
-interface PaymentFormProps {
-  selectedClasses: any[];
-  enrollmentData: any;
-  enrollmentId: string;
-  onComplete: () => void;
-  customer: any;
-}
+type PaymentFormProps = {
+    selectedClasses: Session[];
+    enrollmentSessionsData: EnrollmentSessionData[];
+    enrollmentData: any;
+    enrollmentId: string;
+    onComplete: () => void;
+    customer: any;
+};
 
-export function PaymentForm({ selectedClasses, enrollmentData, enrollmentId, onComplete, customer }: PaymentFormProps) {
+export function PaymentForm({ 
+    selectedClasses, 
+    enrollmentSessionsData,
+    enrollmentData, 
+    enrollmentId, 
+    onComplete, 
+    customer 
+}: PaymentFormProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -168,6 +179,9 @@ export function PaymentForm({ selectedClasses, enrollmentData, enrollmentId, onC
     );
   }
 
+  console.log("enrollmentSessionsDataXXX", enrollmentSessionsData);
+  console.log("customerxxx", customer);
+
   return (
     <div className="space-y-6">
       <div>
@@ -186,12 +200,7 @@ export function PaymentForm({ selectedClasses, enrollmentData, enrollmentId, onC
                 <div>
                   <h4 className="font-medium">{cls.name}</h4>
                   <p className="text-sm text-muted-foreground">
-                    {cls.day_of_week === 1 ? 'Monday' : 
-                     cls.day_of_week === 2 ? 'Tuesday' : 
-                     cls.day_of_week === 3 ? 'Wednesday' : 
-                     cls.day_of_week === 4 ? 'Thursday' : 
-                     cls.day_of_week === 5 ? 'Friday' : 
-                     cls.day_of_week === 6 ? 'Saturday' : 'Sunday'} • {cls.start_time}
+                    {cls.day_of_week} • {cls.start_time}
                   </p>
                 </div>
                 <div className="text-right">
@@ -225,6 +234,7 @@ export function PaymentForm({ selectedClasses, enrollmentData, enrollmentId, onC
               >
                 <CheckoutForm 
                   selectedClasses={selectedClasses}
+                  enrollmentSessionsData={enrollmentSessionsData}
                   enrollmentData={enrollmentData}
                   enrollmentId={enrollmentId}
                   onComplete={onComplete}

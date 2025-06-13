@@ -13,13 +13,34 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Download } from 'lucide-react';
 import { EnrollmentInfo } from './enrollment-info';
+import type { Session } from '../page';
 
-interface EnrollmentWizardProps {
-  isOpen: boolean;
-  onClose: () => void;
-  selectedSessions: any[];
-  totalAmount: number;
-}
+export type EnrollmentSessionData = {
+    session_id: string;
+    enrollment_type: 'full' | 'trial' | 'partial';
+    trial_date?: string;
+    partial_dates?: string[];
+    fee_amount: number;
+    session_details: {
+        name: string;
+        code: string;
+        day_of_week: string;
+        start_time: string;
+        end_time?: string;
+        venue_id: string;
+        instructor_id: string;
+        exercise_type_id: string;
+        term_id: string;
+    };
+};
+
+type EnrollmentWizardProps = {
+    isOpen: boolean;
+    onClose: () => void;
+    selectedSessions: Session[];
+    totalAmount: number;
+    enrollmentSessionsData: EnrollmentSessionData[];
+};
 
 const PAQ_QUESTIONS = [
   {
@@ -64,10 +85,11 @@ const PAQ_QUESTIONS = [
   }
 ];
 
-export function EnrollmentWizard({ isOpen, onClose, selectedSessions, totalAmount }: EnrollmentWizardProps) {
+export function EnrollmentWizard({ isOpen, onClose, selectedSessions, totalAmount, enrollmentSessionsData }: EnrollmentWizardProps) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     // Customer form data
+    id: '',
     surname: '',
     first_name: '',
     street_number: '',
@@ -239,6 +261,7 @@ export function EnrollmentWizard({ isOpen, onClose, selectedSessions, totalAmoun
         return (
           <PaymentForm
             selectedClasses={selectedSessions}
+            enrollmentSessionsData={enrollmentSessionsData}
             enrollmentData={formData}
             enrollmentId=""
             onComplete={onClose}
@@ -250,6 +273,8 @@ export function EnrollmentWizard({ isOpen, onClose, selectedSessions, totalAmoun
         return null;
     }
   };
+
+  console.log("enrollmentSessionsData", enrollmentSessionsData);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

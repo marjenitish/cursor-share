@@ -10,10 +10,12 @@ create table public.enrollment_sessions (
   medical_certificate_url text null,
   cancellation_status text null,
   admin_notes text null,
+  trial_date date null,
+  partial_dates jsonb null,
+  enrollment_type character varying null,
   constraint enrollment_sessions_pkey primary key (id),
-  constraint enrollment_sessions_session_id_fkey foreign KEY (session_id) references sessions (id),
   constraint enrollment_sessions_enrollment_id_fkey foreign KEY (enrollment_id) references enrollments (id),
-
+  constraint enrollment_sessions_session_id_fkey foreign KEY (session_id) references sessions (id),
   constraint enrollment_sessions_cancellation_status_check check (
     (
       cancellation_status = any (

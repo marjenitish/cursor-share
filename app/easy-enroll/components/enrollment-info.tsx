@@ -91,6 +91,7 @@ export function EnrollmentInfo({ supportPhone = "(555) 123-4567", onFormDataUpda
               form.setValue(key as keyof CustomerFormValues, castValue as any);
             }
           });
+          onFormDataUpdate?.(customerData);
         }
       }
     };
@@ -100,6 +101,7 @@ export function EnrollmentInfo({ supportPhone = "(555) 123-4567", onFormDataUpda
 
   const onSubmit = async (data: CustomerFormValues) => {
     setIsLoading(true);
+    console.log("dataxxx", data);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {

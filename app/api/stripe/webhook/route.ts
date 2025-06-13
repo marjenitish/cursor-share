@@ -46,67 +46,67 @@ export async function POST(req: Request) {
       case 'payment_intent.succeeded':
         console.log("payment_intent.succeeded")
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-
         console.log("paymentIntent", paymentIntent)
 
-        const enrollmentId = paymentIntent.metadata.enrollmentId;
-        const selectedClassIdsString = paymentIntent.metadata.selectedClasses;
-        const customerEmail = paymentIntent.metadata.customerEmail;
-        const customerName = paymentIntent.metadata.customerName;
+        const customerId = paymentIntent.metadata.customerId;
+        const enrollmentData = JSON.parse(paymentIntent.metadata.enrollmentData);
 
-        // 1. Create or update enrollment
-        const { error: enrollmentError } = await supabase
+        // 1. Create enrollment
+        const { data: enrollment, error: enrollmentError } = await supabase
           .from('enrollments')
-          .upsert({
-            id: enrollmentId,
+          .insert({
+            customer_id: customerId,
             enrollment_type: 'direct',
             status: 'active',
             payment_status: 'paid',
             payment_intent: paymentIntent.id,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
+          })
+          .select()
+          .single();
 
         if (enrollmentError) throw enrollmentError;
-        
-        console.log("Creating enrollment sessions")
 
-        // 2. Create enrollment sessions for each selected class
-        const selectedClassIds = selectedClassIdsString.split(',');
-        const sessionsToInsert = [];
-
-        for (const classId of selectedClassIds) {
-          // Fetch class details to get the date
-          const { data: classDetails, error: classDetailsError } = await supabase
-            .from('classes')
-            .select('id, date, session_id')
-            .eq('id', classId)
-            .single();
-
-          if (classDetailsError) {
-            console.error(`Error fetching class ${classId}:`, classDetailsError);
-            continue;
-          }
-
-          sessionsToInsert.push({
-            enrollment_id: enrollmentId,
-            session_id: classDetails.session_id,
-            booking_date: classDetails.date,
-            is_free_trial: false,
+        // 2. Create enrollment sessions
+        const enrollmentSessions = enrollmentData.map((session: any) => {
+          const baseSession = {
+            enrollment_id: enrollment.id,
+            session_id: session.id,
+            enrollment_type: session.type,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          });
-        }
+          };
 
-        if (sessionsToInsert.length > 0) {
-          const { error: sessionsError } = await supabase
-            .from('enrollment_sessions')
-            .insert(sessionsToInsert);
+          if (session.type === 'trial') {
+            return {
+              ...baseSession,
+              is_free_trial: true,
+              trial_date: new Date(session.dates).toISOString().split('T')[0],
+              booking_date: new Date(session.dates).toISOString().split('T')[0]
+            };
+          } else if (session.type === 'partial') {
+            return {
+              ...baseSession,
+              is_free_trial: false,
+              partial_dates: session.dates.split(',').map((date: string) => 
+                new Date(date).toISOString().split('T')[0]
+              ),
+              booking_date: new Date(session.dates.split(',')[0]).toISOString().split('T')[0]
+            };
+          } else {
+            // Full enrollment
+            return {
+              ...baseSession,
+              is_free_trial: false,
+              booking_date: new Date().toISOString().split('T')[0]
+            };
+          }
+        });
 
-          if (sessionsError) throw sessionsError;
-        }
+        const { error: sessionsError } = await supabase
+          .from('enrollment_sessions')
+          .insert(enrollmentSessions);
 
-        console.log("Creating payment record")
+        if (sessionsError) throw sessionsError;
 
         // 3. Create payment record
         const receiptNumber = Math.floor(10000000 + Math.random() * 90000000).toString();
@@ -114,14 +114,14 @@ export async function POST(req: Request) {
         const { error: paymentError } = await supabase
           .from('payments')
           .insert({
-            enrollment_id: enrollmentId,
+            enrollment_id: enrollment.id,
             amount: paymentIntent.amount/100,
             payment_method: 'stripe',
             payment_status: 'completed',
             transaction_id: paymentIntent.id,
             receipt_number: receiptNumber,
             payment_date: new Date().toISOString(),
-            notes: `Payment for enrollment: ${enrollmentId}`,
+            notes: `Payment for enrollment: ${enrollment.id}`,
           });
 
         if (paymentError) throw paymentError;

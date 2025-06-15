@@ -1,8 +1,45 @@
+import { Metadata } from "next";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { MapPin, Phone, Mail, Clock } from 'lucide-react';
 import { Navigation } from '@/components/shared/navigation';
+
+export const dynamic = 'force-static';
+
+// Metadata for SEO
+export const generateMetadata = async (): Promise<Metadata> => {
+  return {
+    title: "Who We Are | SHARE Community Fitness",
+    description:
+      "Contact SHARE, a not-for-profit organization delivering targeted, affordable exercise programs for people over 50 since 1985.",
+    openGraph: {
+      title: "Who We Are | SHARE Community Fitness",
+      description:
+        "SHARE provides award-winning fitness programs focused on compassion, innovation, and inclusiveness for people over 50.",
+      url: "https://share.org.au/contact",
+      siteName: "SHARE Community Fitness",
+      images: [
+        {
+          url: "/share-logo.png",
+          alt: "SHARE Community",
+        },
+      ],
+      locale: "en_AU",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Contact Us | SHARE Community Fitness",
+      description: "Contact us share for Targeted, affordable exercise programs for over 50s. Discover our core values and mission.",
+      images: ["https://share.org.au/wp-content/uploads/2019/07/SHARE-circle.png"],
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+};
 
 export default function ContactPage() {
   return (

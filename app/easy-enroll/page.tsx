@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { createBrowserClient } from '@/lib/supabase/client';
-import { Loader2, X, Info } from 'lucide-react';
+import { Loader2, X, Info, Menu } from 'lucide-react';
 import { format, isWithinInterval } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -126,6 +126,7 @@ export default function EasyEnrollPage() {
     const searchParams = useSearchParams();
     const [showExerciseTypeGuide, setShowExerciseTypeGuide] = useState(true);
     const [showSessionGuide, setShowSessionGuide] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     // Load saved state from localStorage on initial load
     useEffect(() => {
@@ -551,14 +552,22 @@ export default function EasyEnrollPage() {
     return (
         <div className="min-h-screen bg-background">
             <Navigation />
+            
+            <div className="flex h-[calc(100vh-64px)] relative">
+                {/* Mobile Sidebar Toggle */}
+                <button
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="fixed bottom-6 right-6 z-50 md:hidden bg-primary text-primary-foreground p-3 rounded-full shadow-lg hover:bg-primary/90 transition-colors"
+                >
+                    <Menu className="h-6 w-6" />
+                </button>
 
-            <div className="flex h-[calc(100vh-64px)]">
                 {/* Main Content */}
                 <ScrollArea className="flex-1">
                     <div className="p-6 space-y-6">
                         <Card className="bg-gradient-to-br from-secondary/10 via-background to-tertiary/10 border-none shadow-lg">
-                            <CardHeader>
-                                <CardTitle className="text-primary">Enrollment</CardTitle>                            
+                            <CardHeader className="space-y-4">
+                                <CardTitle className="text-primary text-2xl">Enrollment</CardTitle>                            
                                 {currentTerm && (
                                     <p className="text-sm text-muted-foreground">
                                         Current Term: FY {currentTerm.fiscal_year} - Term {currentTerm.term_number}
@@ -568,16 +577,19 @@ export default function EasyEnrollPage() {
                                     {!selectedExerciseType ? (
                                         <p className="mb-2">Select an exercise type to view available classes.</p>
                                     ) : (
-                                        <div className="flex items-center justify-between">
+                                        <div className="flex flex-col space-y-4">
                                             <p className="mb-2">
-                                                Showing classes for: <span className="font-medium">
+                                                Showing classes for:
+                                                <br />
+                                                <span className="font-medium text-lg">
                                                     {exerciseTypes.find(t => t.id === selectedExerciseType)?.name}
                                                 </span>
                                             </p>
-                                            <div className="flex items-center space-x-2">
+                                            <div className="flex flex-col sm:flex-row gap-2">
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
+                                                    className="w-full sm:w-auto"
                                                     onClick={() => handleExerciseTypeChange(null)}
                                                 >
                                                     Change Exercise Type
@@ -585,6 +597,7 @@ export default function EasyEnrollPage() {
                                                 <Button
                                                     variant="outline"
                                                     size="sm"
+                                                    className="w-full sm:w-auto"
                                                     onClick={clearCart}
                                                 >
                                                     Clear Cart
@@ -648,12 +661,12 @@ export default function EasyEnrollPage() {
                                                                 <TableHeader>
                                                                     <TableRow className="bg-muted/50">
                                                                         <TableHead className="w-[50px]">Select</TableHead>
-                                                                        <TableHead>Time</TableHead>
-                                                                        <TableHead>Class</TableHead>
-                                                                        <TableHead>Exercise Type</TableHead>
-                                                                        <TableHead>Venue</TableHead>
-                                                                        <TableHead>Instructor</TableHead>
-                                                                        <TableHead>Fee</TableHead>
+                                                                        <TableHead className="hidden md:table-cell">Time</TableHead>
+                                                                        <TableHead className="hidden md:table-cell">Class</TableHead>
+                                                                        <TableHead className="hidden md:table-cell">Exercise Type</TableHead>
+                                                                        <TableHead className="hidden md:table-cell">Venue</TableHead>
+                                                                        <TableHead className="hidden md:table-cell">Instructor</TableHead>
+                                                                        <TableHead className="hidden md:table-cell">Fee</TableHead>
                                                                     </TableRow>
                                                                 </TableHeader>
                                                                 <TableBody>
@@ -675,39 +688,60 @@ export default function EasyEnrollPage() {
                                                                                         }`}
                                                                                     />
                                                                                     {showSessionGuide && index === 0 && (
-                                                                                        <div className="absolute -top-8 left-2 ml-20 
-                                                                                        -translate-x-1/2 bg-primary text-primary-foreground 
-                                                                                        px-2 py-1
-                                                                                        rounded-lg whitespace-nowrap text-[10px]
-                                                                                        font-normal shadow-lg animate-fade-in z-50">
+                                                                                        <div className="absolute -top-8 left-2 ml-20 -translate-x-1/2 bg-primary text-primary-foreground px-2 py-1 rounded-lg whitespace-nowrap text-[10px] font-normal shadow-lg animate-fade-in z-50">
                                                                                             Check to add session to cart
                                                                                         </div>
                                                                                     )}
                                                                                 </div>
                                                                             </TableCell>
-                                                                            <TableCell>
+                                                                            <TableCell className="md:hidden">
+                                                                                <div className="space-y-2">
+                                                                                    <div className="font-medium">{session.name}</div>
+                                                                                    <div className="text-sm text-muted-foreground">{session.code}</div>
+                                                                                    <div className="text-sm">
+                                                                                        {formatTime(session.start_time)}
+                                                                                        {session.end_time && ` - ${formatTime(session.end_time)}`}
+                                                                                    </div>
+                                                                                    <div className="text-sm text-muted-foreground">
+                                                                                        {session.exercise_type?.name}
+                                                                                    </div>
+                                                                                    <div className="text-sm">
+                                                                                        {session.venue?.name}
+                                                                                        <br />
+                                                                                        <span className="text-muted-foreground">
+                                                                                            {session.address}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="text-sm text-muted-foreground">
+                                                                                        Instructor: {session.instructor?.name}
+                                                                                    </div>
+                                                                                    <div className="font-medium">
+                                                                                        Fee: ${calculateSessionFee(session, session.id).toFixed(2)}
+                                                                                    </div>
+                                                                                </div>
+                                                                            </TableCell>
+                                                                            <TableCell className="hidden md:table-cell">
                                                                                 {formatTime(session.start_time)}
                                                                                 {session.end_time && ` - ${formatTime(session.end_time)}`}
                                                                                 <br />
                                                                                 {session?.terms?.start_date} to {session?.terms?.end_date}
                                                                             </TableCell>
-                                                                            <TableCell>
+                                                                            <TableCell className="hidden md:table-cell">
                                                                                 <div className="font-medium">{session.name}</div>
                                                                                 <div className="text-sm text-muted-foreground">{session.code}</div>
                                                                             </TableCell>
-                                                                            <TableCell>
+                                                                            <TableCell className="hidden md:table-cell">
                                                                                 {session.exercise_type?.name}
                                                                             </TableCell>
-                                                                            <TableCell>
+                                                                            <TableCell className="hidden md:table-cell">
                                                                                 {session.venue?.name}
                                                                                 <br />
                                                                                 <span className="text-sm text-muted-foreground">
                                                                                     {session.address}
-                                                                                    {session.zip_code && `, ${session.zip_code}`}
                                                                                 </span>
                                                                             </TableCell>
-                                                                            <TableCell>{session.instructor?.name}</TableCell>
-                                                                            <TableCell>
+                                                                            <TableCell className="hidden md:table-cell">{session.instructor?.name}</TableCell>
+                                                                            <TableCell className="hidden md:table-cell">
                                                                                 ${calculateSessionFee(session, session.id).toFixed(2)}
                                                                             </TableCell>
                                                                         </TableRow>
@@ -731,7 +765,13 @@ export default function EasyEnrollPage() {
                 </ScrollArea>
 
                 {/* Sidebar */}
-                <div className="w-[400px] border-l bg-gradient-to-br from-secondary/5 via-background to-tertiary/5">
+                <div className={`
+                    fixed md:static inset-y-0 right-0 z-40
+                    transform transition-transform duration-300 ease-in-out
+                    ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+                    w-[280px] md:w-[400px] border-l
+                    bg-background md:bg-gradient-to-br md:from-secondary/5 md:via-background md:to-tertiary/5
+                `}>
                     <ScrollArea className="h-full">
                         <div className="p-6 space-y-4">
                             <div className="space-y-2">
@@ -953,6 +993,14 @@ export default function EasyEnrollPage() {
                         </div>
                     </ScrollArea>
                 </div>
+
+                {/* Overlay for mobile */}
+                {isSidebarOpen && (
+                    <div 
+                        className="fixed inset-0 bg-black/50 z-30 md:hidden"
+                        onClick={() => setIsSidebarOpen(false)}
+                    />
+                )}
             </div>
 
             <AuthCheckModal

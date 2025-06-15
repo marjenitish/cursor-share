@@ -1,40 +1,79 @@
-import { Button } from '@/components/ui/button';
-import { Navigation } from '@/components/shared/navigation';
-import { Heart, Brain, Target, Lightbulb, Users, Lock, ArrowRight } from 'lucide-react';
-import Link from 'next/link';
+import { Metadata } from "next";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Navigation } from "@/components/shared/navigation";
+import { Heart, Brain, Target, Lightbulb, Users, Lock, ArrowRight } from "lucide-react";
+
+export const dynamic = 'force-static';
+
+// Metadata for SEO
+export const generateMetadata = async (): Promise<Metadata> => {
+  return {
+    title: "Who We Are | SHARE Community Fitness",
+    description:
+      "Learn about SHARE, a not-for-profit organization delivering targeted, affordable exercise programs for people over 50 since 1985.",
+    openGraph: {
+      title: "Who We Are | SHARE Community Fitness",
+      description:
+        "SHARE provides award-winning fitness programs focused on compassion, innovation, and inclusiveness for people over 50.",
+      url: "https://yourdomain.com/who-we-are",
+      siteName: "SHARE Community Fitness",
+      images: [
+        {
+          url: "https://share.org.au/wp-content/uploads/2019/07/SHARE-circle.png",
+          width: 600,
+          height: 600,
+          alt: "SHARE Community",
+        },
+      ],
+      locale: "en_AU",
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Who We Are | SHARE Community Fitness",
+      description: "Targeted, affordable exercise programs for over 50s. Discover our core values and mission.",
+      images: ["https://share.org.au/wp-content/uploads/2019/07/SHARE-circle.png"],
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+};
 
 export default function WhoWeArePage() {
   const coreValues = [
     {
       title: "Compassionate",
       icon: Heart,
-      description: "We care deeply about our community and provide support with empathy and understanding."
+      description: "We care deeply about our community and provide support with empathy and understanding.",
     },
     {
       title: "Evidence-based",
       icon: Brain,
-      description: "Our programs are founded on proven research and best practices in senior fitness."
+      description: "Our programs are founded on proven research and best practices in senior fitness.",
     },
     {
       title: "Focus",
       icon: Target,
-      description: "We maintain clear objectives and dedicated attention to achieving positive outcomes."
+      description: "We maintain clear objectives and dedicated attention to achieving positive outcomes.",
     },
     {
       title: "Innovation",
       icon: Lightbulb,
-      description: "We continuously evolve our programs to meet changing community needs."
+      description: "We continuously evolve our programs to meet changing community needs.",
     },
     {
       title: "Inclusiveness",
       icon: Users,
-      description: "We welcome everyone, creating a supportive environment for all participants."
+      description: "We welcome everyone, creating a supportive environment for all participants.",
     },
     {
       title: "Trust",
       icon: Lock,
-      description: "We build lasting relationships based on reliability and integrity."
-    }
+      description: "We build lasting relationships based on reliability and integrity.",
+    },
   ];
 
   return (
@@ -47,7 +86,8 @@ export default function WhoWeArePage() {
           <h1 className="text-4xl font-bold tracking-tight mb-6">Who We Are</h1>
           <div className="max-w-3xl">
             <p className="text-xl text-muted-foreground">
-              SHARE is a Not For Profit but for purpose organization, delivering caring, targeted, and affordable exercise classes to people over 50 since 1985.
+              SHARE is a Not For Profit but for purpose organization, delivering caring, targeted, and affordable
+              exercise classes to people over 50 since 1985.
             </p>
           </div>
         </div>
@@ -60,10 +100,13 @@ export default function WhoWeArePage() {
             <div className="space-y-6">
               <h2 className="text-3xl font-bold text-primary">Award-Winning Community Service</h2>
               <p className="text-lg text-muted-foreground">
-                SHARE is an award-winning and well-known brand with a proven record of providing exercise classes to people over 50 in the community since 1985. We deliver caring, targeted, affordable, flexible and relevant classes/programs in non-threatening settings.
+                SHARE is an award-winning and well-known brand with a proven record of providing exercise classes to
+                people over 50 in the community since 1985. We deliver caring, targeted, affordable, flexible and
+                relevant classes/programs in non-threatening settings.
               </p>
               <p className="text-lg text-muted-foreground">
-                We make a real difference in people's life, particularly older people, some of our participants are over 90 years old.
+                We make a real difference in people's life, particularly older people, some of our participants are over
+                90 years old.
               </p>
             </div>
             <div className="relative aspect-square rounded-xl overflow-hidden">
@@ -118,10 +161,14 @@ export default function WhoWeArePage() {
           <div className="grid gap-8 lg:grid-cols-2">
             <div className="space-y-6">
               <p className="text-lg text-muted-foreground">
-                Built on SHARE's existing expertise, experience and reputation we offer affordable exercise and education classes to the adult community through a network of trained community educators and accredited fitness instructors.
+                Built on SHARE's existing expertise, experience and reputation we offer affordable exercise and
+                education classes to the adult community through a network of trained community educators and accredited
+                fitness instructors.
               </p>
               <p className="text-lg text-muted-foreground">
-                SHARE's well designed, specialised exercise classes include targeting Falls Prevention and chronic diseases. Our strategy is closely aligned to NSW Government Health's "NSW Healthy Eating and Active Living Strategy" which includes tackling overweight and obesity.
+                SHARE's well designed, specialised exercise classes include targeting Falls Prevention and chronic
+                diseases. Our strategy is closely aligned to NSW Government Health's "NSW Healthy Eating and Active
+                Living Strategy" which includes tackling overweight and obesity.
               </p>
               <div className="bg-muted/30 rounded-lg p-6">
                 <h3 className="text-xl font-semibold mb-4">Our Programs Include:</h3>
@@ -157,7 +204,9 @@ export default function WhoWeArePage() {
                 </ul>
               </div>
               <p className="text-lg text-muted-foreground">
-                SHARE classes are run by fitness leaders who are registered and accredited by Fitness Australia. All our leaders are experienced in catering for older adults and are able to provide guidance and helpful advice.
+                SHARE classes are run by fitness leaders who are registered and accredited by Fitness Australia. All our
+                leaders are experienced in catering for older adults and are able to provide guidance and helpful
+                advice.
               </p>
               <Link href="/easy-enroll">
                 <Button
@@ -168,7 +217,6 @@ export default function WhoWeArePage() {
                     Find Classes Near You
                     <ArrowRight className="ml-2 h-5 w-5 animate-wiggle" />
                   </span>
-
                   <span className="absolute top-0 left-[-75%] w-1/2 h-full bg-white/20 transform skew-x-[-20deg] animate-shine"></span>
                 </Button>
               </Link>

@@ -190,36 +190,51 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link href="/easy-enroll">
-                  <Button size="lg" className="h-14 text-lg px-8">
+                  {/* <Button
+                    size="lg"
+                    className="h-14 text-lg px-8 rounded-2xl bg-blue-600 text-white shadow-lg focus:ring-4 focus:ring-blue-300 animate-buttonAttention"
+                  >
                     Find Classes Near You
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-                <Link href="/about/who-we-are">
-                  <Button variant="outline" size="lg" className="h-14 text-lg px-8">
-                    Learn More
-                  </Button>
-                </Link>
-              </div>
+                    <ArrowRight className="ml-2 h-5 w-5 animate-wiggle" />
+                  </Button> */}
+
+                  <Button
+                    size="lg"
+                    className="relative overflow-hidden h-14 text-lg px-8 rounded-2xl bg-blue-600 text-white shadow-lg focus:ring-4 focus:ring-blue-300 group"
+                  >
+                    <span className="relative z-10 flex items-center">
+                      Find Classes Near You
+                      <ArrowRight className="ml-2 h-5 w-5 animate-wiggle" />
+                    </span>
+
+                  <span className="absolute top-0 left-[-75%] w-1/2 h-full bg-white/20 transform skew-x-[-20deg] animate-shine"></span>
+                </Button>
+              </Link>
+              <Link href="/about/who-we-are">
+                <Button variant="outline" size="lg" className="h-14 text-lg px-8">
+                  Learn More
+                </Button>
+              </Link>
             </div>
-            <div className="relative aspect-video rounded-xl overflow-hidden">
-              <div className="embla" ref={emblaRef}>
-                <div className="embla__container flex">
-                  {slideImages.map((img, index) => (
-                    <div className="embla__slide relative w-full flex-[0_0_100%]" key={index}>
-                      <img
-                        src={img}
-                        alt={`Slide ${index + 1}`}
-                        className="object-cover w-full h-full"
-                      />
-                    </div>
-                  ))}
-                </div>
+          </div>
+          <div className="relative aspect-video rounded-xl overflow-hidden">
+            <div className="embla" ref={emblaRef}>
+              <div className="embla__container flex">
+                {slideImages.map((img, index) => (
+                  <div className="embla__slide relative w-full flex-[0_0_100%]" key={index}>
+                    <img
+                      src={img}
+                      alt={`Slide ${index + 1}`}
+                      className="object-cover w-full h-full"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
-      </section>
+    </div>
+      </section >
 
       <section className="py-12 bg-muted/30 bg-gray-50">
         <div className="container mx-auto px-4">
@@ -563,6 +578,6 @@ export default function Home() {
           </div>
         </div>
       </footer>
-    </div>
+    </div >
   );
 }

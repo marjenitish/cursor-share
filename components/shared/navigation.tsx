@@ -66,8 +66,7 @@ export function Navigation() {
         { href: '/about/mission', label: 'Mission and Vision' },
         { href: '/about/board', label: 'SHARE Board' },
         { href: '/about/instructors', label: 'SHARE Instructors' },
-        { href: '/about/careers', label: 'Join Our Team' },
-        { href: '/events', label: 'Events' },
+        { href: '/about/careers', label: 'Join Our Team' }
       ]
     },
     {

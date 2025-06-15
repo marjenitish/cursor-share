@@ -1,8 +1,12 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { Navigation } from '@/components/shared/navigation';
 import { Target, ArrowRight, CheckCircle, Users, Heart, Brain } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function MissionPage() {
+  const router = useRouter();
   const visionGoals = [
     {
       title: "Building Healthier Communities",
@@ -75,7 +79,7 @@ export default function MissionPage() {
             </div>
             <div className="relative aspect-video rounded-xl overflow-hidden bg-muted">
               <img
-                src="https://images.pexels.com/photos/7991157/pexels-photo-7991157.jpeg"
+                src="https://insight.study.csu.edu.au/wp-content/uploads/2018/04/Industry-adapting-Ageing-population.jpg"
                 alt="Senior exercise class"
                 className="object-cover w-full h-full"
               />
@@ -122,11 +126,11 @@ export default function MissionPage() {
             Be part of our mission to create healthier, more active communities across Australia.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="h-14 text-lg px-8">
+            <Button size="lg" className="h-14 text-lg px-8" onClick={() => router.push('/easy-enroll')}>
               Find a Class
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
-            <Button variant="outline" size="lg" className="h-14 text-lg px-8">
+            <Button variant="outline" size="lg" className="h-14 text-lg px-8" onClick={() => router.push('/contact')}>
               Contact Us
             </Button>
           </div>

@@ -11,18 +11,16 @@ export const generateMetadata = async (): Promise<Metadata> => {
   return {
     title: "Who We Are | SHARE Community Fitness",
     description:
-      "Learn about SHARE, a not-for-profit organization delivering targeted, affordable exercise programs for people over 50 since 1985.",
+      "Learn about who we are, a not-for-profit organization delivering targeted, affordable exercise programs for people over 50 since 1985.",
     openGraph: {
       title: "Who We Are | SHARE Community Fitness",
       description:
         "SHARE provides award-winning fitness programs focused on compassion, innovation, and inclusiveness for people over 50.",
-      url: "https://yourdomain.com/who-we-are",
+      url: "https://share.org.au/who-we-are",
       siteName: "SHARE Community Fitness",
       images: [
         {
-          url: "https://share.org.au/wp-content/uploads/2019/07/SHARE-circle.png",
-          width: 600,
-          height: 600,
+          url: "/share-logo.png",
           alt: "SHARE Community",
         },
       ],

@@ -86,6 +86,10 @@ const config: Config = {
           '0%': { left: '-75%' },
           '100%': { left: '125%' },
         },
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
@@ -94,6 +98,7 @@ const config: Config = {
         'wiggle': 'wiggle 1s ease-in-out infinite',
         'buttonAttention': 'buttonAttention 1.5s ease-in-out infinite',
         'shine': 'shine 1.5s ease-in-out infinite',
+        'fadeIn': 'fadeIn 0.5s ease-out',
       },
     },
   },

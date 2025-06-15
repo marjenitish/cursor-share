@@ -24,7 +24,6 @@ import { cn } from "@/lib/utils";
 import { format as dateFormat } from "date-fns";
 import { format as timeFormat } from "date-fns";
 import { useSearchParams } from 'next/navigation';
-import { GuideCursor } from './components/guide-cursor';
 
 type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
 
@@ -125,7 +124,8 @@ export default function EasyEnrollPage() {
     const [partialDates, setPartialDates] = useState<Record<string, Date[]>>({});
     const [error, setError] = useState<string | null>(null);
     const searchParams = useSearchParams();
-    const [showGuide, setShowGuide] = useState(true);
+    const [showExerciseTypeGuide, setShowExerciseTypeGuide] = useState(true);
+    const [showSessionGuide, setShowSessionGuide] = useState(false);
 
     // Load saved state from localStorage on initial load
     useEffect(() => {
@@ -327,7 +327,11 @@ export default function EasyEnrollPage() {
 
     const handleExerciseTypeChange = (typeId: string | null) => {
         setSelectedExerciseType(typeId);
-        // Don't clear selected sessions when changing exercise type
+        setShowExerciseTypeGuide(false);
+        // Show session guide after exercise type is selected
+        setTimeout(() => {
+            setShowSessionGuide(true);
+        }, 500);
     };
 
     const toggleSession = (sessionId: string) => {
@@ -547,14 +551,6 @@ export default function EasyEnrollPage() {
     return (
         <div className="min-h-screen bg-background">
             <Navigation />
-            
-            {/* Add the guide cursor */}
-            {showGuide && (
-                <GuideCursor 
-                    targetSelector="[data-exercise-type='cardio']"
-                    onComplete={() => setShowGuide(false)}
-                />
-            )}
 
             <div className="flex h-[calc(100vh-64px)]">
                 {/* Main Content */}
@@ -600,32 +596,39 @@ export default function EasyEnrollPage() {
                             </CardHeader>
                             <CardContent>
                                 {!selectedExerciseType ? (
-                                    // Exercise Type Selection
                                     <div className="space-y-4">
-                                        <RadioGroup
-                                            value={selectedExerciseType || ""}
-                                            onValueChange={handleExerciseTypeChange}
-                                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                                        >
-                                            {exerciseTypes.map((type) => (
-                                                <div key={type.id}>
-                                                    <RadioGroupItem
-                                                        value={type.id}
-                                                        id={type.id}
-                                                        className="peer sr-only"
-                                                    />
-                                                    <Label
-                                                        htmlFor={type.id}
-                                                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                                                        data-exercise-type={type.name.toLowerCase().replace(/\s+/g, '-')}
-                                                    >
-                                                        <div className="space-y-1 text-center">
-                                                            <div className="font-medium">{type.name}</div>
-                                                        </div>
-                                                    </Label>
+                                        <div className="relative">
+                                            <RadioGroup
+                                                value={selectedExerciseType || ""}
+                                                onValueChange={handleExerciseTypeChange}
+                                                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                                            >
+                                                {exerciseTypes.map((type, index) => (
+                                                    <div key={type.id}>
+                                                        <RadioGroupItem
+                                                            value={type.id}
+                                                            id={type.id}
+                                                            className="peer sr-only"
+                                                        />
+                                                        <Label
+                                                            htmlFor={type.id}
+                                                            className={`flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer ${
+                                                                showExerciseTypeGuide && index === 0 ? 'animate-bounce' : ''
+                                                            }`}
+                                                        >
+                                                            <div className="space-y-1 text-center">
+                                                                <div className="font-medium">{type.name}</div>
+                                                            </div>
+                                                        </Label>
+                                                    </div>
+                                                ))}
+                                            </RadioGroup>
+                                            {showExerciseTypeGuide && (
+                                                <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium shadow-lg animate-fade-in">
+                                                    Select an exercise type to continue
                                                 </div>
-                                            ))}
-                                        </RadioGroup>
+                                            )}
+                                        </div>
                                     </div>
                                 ) : (
                                     // Sessions List
@@ -654,13 +657,33 @@ export default function EasyEnrollPage() {
                                                                     </TableRow>
                                                                 </TableHeader>
                                                                 <TableBody>
-                                                                    {dayClasses.map(session => (
+                                                                    {dayClasses.map((session, index) => (
                                                                         <TableRow key={session.id} className="hover:bg-muted/30">
                                                                             <TableCell>
-                                                                                <Checkbox
-                                                                                    checked={selectedSessions.has(session.id)}
-                                                                                    onCheckedChange={() => toggleSession(session.id)}
-                                                                                />
+                                                                                <div className="relative">
+                                                                                    <Checkbox
+                                                                                        id={session.id}
+                                                                                        checked={selectedSessions.has(session.id)}
+                                                                                        onCheckedChange={() => {
+                                                                                            toggleSession(session.id);
+                                                                                            if (showSessionGuide) {
+                                                                                                setShowSessionGuide(false);
+                                                                                            }
+                                                                                        }}
+                                                                                        className={`${
+                                                                                            showSessionGuide && index === 0 ? 'animate-bounce' : ''
+                                                                                        }`}
+                                                                                    />
+                                                                                    {showSessionGuide && index === 0 && (
+                                                                                        <div className="absolute -top-8 left-2 ml-20 
+                                                                                        -translate-x-1/2 bg-primary text-primary-foreground 
+                                                                                        px-2 py-1
+                                                                                        rounded-lg whitespace-nowrap text-[10px]
+                                                                                        font-normal shadow-lg animate-fade-in z-50">
+                                                                                            Check to add session to cart
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
                                                                             </TableCell>
                                                                             <TableCell>
                                                                                 {formatTime(session.start_time)}

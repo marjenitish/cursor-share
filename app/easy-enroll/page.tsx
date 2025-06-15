@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { format as dateFormat } from "date-fns";
 import { format as timeFormat } from "date-fns";
 import { useSearchParams } from 'next/navigation';
+import { GuideCursor } from './components/guide-cursor';
 
 type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
 
@@ -124,6 +125,7 @@ export default function EasyEnrollPage() {
     const [partialDates, setPartialDates] = useState<Record<string, Date[]>>({});
     const [error, setError] = useState<string | null>(null);
     const searchParams = useSearchParams();
+    const [showGuide, setShowGuide] = useState(true);
 
     // Load saved state from localStorage on initial load
     useEffect(() => {
@@ -545,6 +547,15 @@ export default function EasyEnrollPage() {
     return (
         <div className="min-h-screen bg-background">
             <Navigation />
+            
+            {/* Add the guide cursor */}
+            {showGuide && (
+                <GuideCursor 
+                    targetSelector="[data-exercise-type='cardio']"
+                    onComplete={() => setShowGuide(false)}
+                />
+            )}
+
             <div className="flex h-[calc(100vh-64px)]">
                 {/* Main Content */}
                 <ScrollArea className="flex-1">
@@ -606,6 +617,7 @@ export default function EasyEnrollPage() {
                                                     <Label
                                                         htmlFor={type.id}
                                                         className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                                        data-exercise-type={type.name.toLowerCase().replace(/\s+/g, '-')}
                                                     >
                                                         <div className="space-y-1 text-center">
                                                             <div className="font-medium">{type.name}</div>

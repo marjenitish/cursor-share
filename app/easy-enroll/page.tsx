@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { createBrowserClient } from '@/lib/supabase/client';
-import { Loader2, X, Info, Menu } from 'lucide-react';
+import { Loader2, X, Info, Menu, Clock } from 'lucide-react';
 import { format, isWithinInterval } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -775,20 +775,21 @@ export default function EasyEnrollPage() {
                     <ScrollArea className="h-full">
                         <div className="p-6 space-y-4">
                             <div className="space-y-2">
-                                <div className="flex justify-between items-center">
+                                <div className="flex flex-col space-y-4 sm:flex-row sm:justify-between sm:items-center sm:space-y-0">
                                     <h2 className="text-lg font-semibold text-primary">Selected Sessions</h2>
                                     {selectedSessions.size > 0 && (
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
                                             <Button 
-                                                size="sm" 
+                                                size="sm"
                                                 variant="outline"
                                                 onClick={clearCart}
+                                                className="w-full sm:w-auto"
                                             >
                                                 Clear
                                             </Button>
                                             <Button 
-                                                size="sm" 
-                                                className="bg-primary hover:bg-primary/90"
+                                                size="sm"
+                                                className="w-full sm:w-auto bg-primary hover:bg-primary/90"
                                                 onClick={handleProceed}
                                             >
                                                 Proceed
@@ -797,12 +798,11 @@ export default function EasyEnrollPage() {
                                     )}
                                 </div>
                                 {selectedSessions.size > 0 && (
-                                    <div className="flex justify-between items-center text-sm">
-                                        <div className="space-x-4">
+                                    <div className="flex flex-col space-y-2 text-sm">
+                                        <div className="flex flex-col space-y-2">
                                             <span className="text-muted-foreground">
                                                 {selectedSessions.size} session{selectedSessions.size !== 1 ? 's' : ''} selected
                                             </span>
-                                            <span className="text-muted-foreground">•</span>
                                             <span className="font-medium text-primary">
                                                 Total: ${calculateTotalFee().toFixed(2)}
                                             </span>
@@ -833,11 +833,24 @@ export default function EasyEnrollPage() {
                                                     <div className="space-y-2">
                                                         <div className="font-medium text-primary">{session.name}</div>
                                                         <div className="text-sm text-muted-foreground">{session.code}</div>
-                                                        <div className="text-sm">
-                                                            {session.day_of_week} • {formatTime(session.start_time)}
-                                                            {session.end_time && ` - ${formatTime(session.end_time)}`}
-                                                            <br />
-                                                            {session.terms?.start_date} to {session.terms?.end_date}
+                                                        <div className="text-sm flex flex-col space-y-1">
+                                                            <div>{session.day_of_week}</div>
+                                                            <div className="flex items-center gap-1">
+                                                                <Clock className="h-4 w-4" />
+                                                                {formatTime(session.start_time)}
+                                                                {session.end_time && (
+                                                                    <>
+                                                                        <span className="mx-1">to</span>
+                                                                        {formatTime(session.end_time)}
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-xs">
+                                                                <CalendarIcon className="h-4 w-4" />
+                                                                {session.terms?.start_date}
+                                                                <span className="mx-1">to</span>
+                                                                {session.terms?.end_date}
+                                                            </div>
                                                         </div>
                                                         <div className="text-sm">
                                                             {session.venue?.name}

@@ -1,13 +1,9 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
 import { Navigation } from '@/components/shared/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowRight, Clock, DollarSign, Calendar, Users, Info } from 'lucide-react';
-import { createBrowserClient } from '@supabase/ssr';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { createServerClient } from '@/lib/supabase/server';
 
 interface ExerciseType {
   id: string;
@@ -19,50 +15,60 @@ interface ExerciseType {
   image_link: string;
 }
 
-export default function ExerciseTypePage() {
-  const params = useParams();
-  const [exerciseType, setExerciseType] = useState<ExerciseType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const router = useRouter();
+interface Props {
+  params: {
+    id: string;
+  };
+}
 
-  useEffect(() => {
-    const fetchExerciseType = async () => {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const supabase = createServerClient();
 
-      const { data, error } = await supabase
-        .from('exercise_types')
-        .select('*')
-        .eq('id', params.id)
-        .single();
+  const { data: exerciseType } = await supabase
+    .from('exercise_types')
+    .select('*')
+    .eq('id', params.id)
+    .single();
 
-      if (error) {
-        console.error('Error fetching exercise type:', error);
-        return;
-      }
-
-      setExerciseType(data);
-      setLoading(false);
+  if (!exerciseType) {
+    return {
+      title: 'Exercise Type Not Found',
+      description: 'The exercise type you are looking for does not exist.',
     };
-
-    fetchExerciseType();
-  }, [params.id]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <div className="container mx-auto px-4 py-12">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-muted rounded w-1/3"></div>
-            <div className="h-4 bg-muted rounded w-1/4"></div>
-          </div>
-        </div>
-      </div>
-    );
   }
+
+  return {
+    title: `${exerciseType.name} | Our Exercise Programs`,
+    description: exerciseType.description,
+    openGraph: {
+      title: `${exerciseType.name} | Our Exercise Programs`,
+      description: exerciseType.description,
+      images: [
+        {
+          url:
+            exerciseType.image_link ||
+            'https://images.pexels.com/photos/7991159/pexels-photo-7991159.jpeg',
+        },
+      ],
+    },
+  };
+}
+
+export default async function ExerciseTypePage({ params }: Props) {
+
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from('exercise_types')
+    .select('*')
+    .eq('id', params.id)
+    .single();
+
+  const exerciseType = data as ExerciseType | null;
 
   if (!exerciseType) {
     return (
@@ -150,19 +156,20 @@ export default function ExerciseTypePage() {
                   <p className="text-muted-foreground mb-6">
                     Take the first step towards a healthier lifestyle. Join our {exerciseType.name} class today!
                   </p>
+
                   <div className="space-y-4">
-                    <Button size="lg" className="w-full"
-                      onClick={() => router.push(`/easy-enroll?exercise_type_id=${params.id}`)}
-                    >
-                      Enroll Now
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="lg"
-                      className="w-full"
-                      onClick={() => router.push(`/easy-enroll?exercise_type_id=${params.id}`)}
-                    >
-                      View Schedule
-                    </Button>
+                    <Link href={`/easy-enroll?exercise_type_id=${exerciseType.id}`}>
+                      <Button size="lg" className="w-full" >
+                        Enroll Now
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link href={`/easy-enroll?exercise_type_id=${exerciseType.id}`}>
+                      <Button variant="outline" size="lg"
+                        className="w-full" >
+                        View Schedule
+                      </Button>
+                    </Link>
                   </div>
                 </CardContent>
               </Card>
@@ -209,20 +216,22 @@ export default function ExerciseTypePage() {
             Join our community and experience the benefits of regular exercise in a supportive environment.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" 
-            className="h-14 text-lg px-8"
-            onClick={() => router.push(`/easy-enroll?exercise_type_id=${params.id}`)}
-            >
-              Find Available Classes
-              <Calendar className="ml-2 h-5 w-5" />
-            </Button>
-            <Button variant="outline" size="lg" 
-            className="h-14 text-lg px-8"
-            onClick={() => router.push(`/contact`)}
-            >
-              Contact Us
-              <Users className="ml-2 h-5 w-5" />
-            </Button>
+            <Link href={`/easy-enroll?exercise_type_id=${exerciseType.id}`}>
+              <Button size="lg"
+                className="h-14 text-lg px-8"
+              >
+                Find Available Classes
+                <Calendar className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+            <Link href={`/contact`}>
+              <Button variant="outline" size="lg"
+                className="h-14 text-lg px-8"
+              >
+                Contact Us
+                <Users className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

@@ -159,8 +159,11 @@ export function PaymentForm({
     return null;
   }
 
+  console.log("selectedClassesXXX", selectedClasses);
+  console.log("enrollmentSessionsDataXXX", enrollmentSessionsData);
   // Calculate total amount
-  const totalAmount = selectedClasses.reduce((sum, cls) => sum + cls.fee_amount, 0);
+  const totalAmount = enrollmentSessionsData.reduce((sum, cls) => sum + cls.fee_amount, 0);
+  console.log("totalAmount", totalAmount);
 
   // Only render if we have a positive amount
   if (totalAmount <= 0) {

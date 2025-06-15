@@ -92,7 +92,7 @@ const config: Config = {
         'accordion-up': 'accordion-up 0.2s ease-out',
         'slowMove': 'slowMove 20s linear infinite',
         'wiggle': 'wiggle 1s ease-in-out infinite',
-        'buttonAttention': 'buttonAttention 1.5s ease-in-out 2',
+        'buttonAttention': 'buttonAttention 1.5s ease-in-out infinite',
         'shine': 'shine 1.5s ease-in-out infinite',
       },
     },

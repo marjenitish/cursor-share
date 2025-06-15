@@ -96,7 +96,9 @@ export function ClassSearch() {
           <div className="flex items-end">
             <Button 
               size="lg"
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg focus:ring-4 focus:ring-blue-300 animate-buttonAttention"
+              // className="w-full rounded-2xl bg-primary text-white shadow-lg focus:ring-4 focus:ring-blue-300 animate-buttonAttention"
+                  
               onClick={handleSearch}
             >
               <Search className="mr-2 h-4 w-4" />

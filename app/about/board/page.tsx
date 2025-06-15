@@ -1,6 +1,7 @@
 import { Navigation } from '@/components/shared/navigation';
 import { Mail, Link as LinkIcon, Award, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 
 interface BoardMember {
   name: string;
@@ -74,7 +75,7 @@ export default function BoardPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       {/* Hero Section */}
       <section className="bg-muted/30 py-12">
         <div className="container mx-auto px-4">
@@ -132,14 +133,18 @@ export default function BoardPage() {
             Be part of our mission to create healthier, more active communities across Australia.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="h-14 text-lg px-8">
-              <Users className="mr-2 h-5 w-5" />
-              Get Involved
-            </Button>
-            <Button variant="outline" size="lg" className="h-14 text-lg px-8">
-              <Mail className="mr-2 h-5 w-5" />
-              Contact Us
-            </Button>
+            <Link href="/contact">
+              <Button size="lg" className="h-14 text-lg px-8">
+                <Users className="mr-2 h-5 w-5" />
+                Get Involved
+              </Button>
+            </Link>
+            <Link href="/contact">
+              <Button variant="outline" size="lg" className="h-14 text-lg px-8">
+                <Mail className="mr-2 h-5 w-5" />
+                Contact Us
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

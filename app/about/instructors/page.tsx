@@ -5,6 +5,7 @@ import { Navigation } from '@/components/shared/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import { createBrowserClient } from '@/lib/supabase/client';
+import Link from 'next/link';
 
 interface Instructor {
   id: string;
@@ -15,7 +16,7 @@ interface Instructor {
 }
 
 export default function InstructorsPage() {
-  const [instructors, setInstructors] = useState<Instructor[]>([]);  
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
   const supabase = createBrowserClient();
 
   useEffect(() => {
@@ -24,7 +25,7 @@ export default function InstructorsPage() {
         .from('instructors')
         .select('*')
         .order('name');
-      
+
       if (data) {
         setInstructors(data);
       }
@@ -36,7 +37,7 @@ export default function InstructorsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       {/* Hero Section */}
       <section className="bg-muted/30 py-12">
         <div className="container mx-auto px-4">
@@ -97,10 +98,16 @@ export default function InstructorsPage() {
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
             Experience the expertise of our instructors and start your journey to better health today.
           </p>
-          <Button size="lg" className="h-14 text-lg px-8">
-            Find a Class
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
+          <Link href="/easy-enroll">
+            <Button
+              size="lg"
+              className="h-14 text-lg px-8 rounded-2xl bg-blue-600 text-white shadow-lg focus:ring-4 focus:ring-blue-300 animate-buttonAttention"
+            >
+              Find Classes Near You
+              <ArrowRight className="ml-2 h-5 w-5 animate-wiggle" />
+            </Button>
+
+          </Link>
         </div>
       </section>
     </div>

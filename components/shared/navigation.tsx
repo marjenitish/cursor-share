@@ -112,7 +112,7 @@ export function Navigation() {
       <div className="bg-muted py-2">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div className="hidden md:flex items-center gap-4">
-            <Link href="/find-location" className="text-sm hover:text-primary">Find your local SHARE</Link>
+            <Link href="/contact" className="text-sm hover:text-primary">Building healthier communities</Link>
             <span className="text-muted-foreground">|</span>
             <Link href="/contact" className="text-sm hover:text-primary">Contact us</Link>
           </div>
@@ -140,19 +140,19 @@ export function Navigation() {
                   <DropdownMenuSeparator />
 
                   {userProfile?.role === 'instructor' ? (
-  <DropdownMenuItem asChild>
-    <Link href="/instructor-portal">Instructor Portal</Link>
-  </DropdownMenuItem>
-) : userProfile?.role === 'admin' ? (
-  <DropdownMenuItem asChild>
-    <Link href="/dashboard">Dashboard</Link>
-  </DropdownMenuItem>
-) : (
-  <DropdownMenuItem asChild>
-    <Link href="/profile">My Profile</Link>
-  </DropdownMenuItem>
-)}
-                  
+                    <DropdownMenuItem asChild>
+                      <Link href="/instructor-portal">Instructor Portal</Link>
+                    </DropdownMenuItem>
+                  ) : userProfile?.role === 'admin' ? (
+                    <DropdownMenuItem asChild>
+                      <Link href="/dashboard">Dashboard</Link>
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile">My Profile</Link>
+                    </DropdownMenuItem>
+                  )}
+
                   <DropdownMenuItem onClick={handleSignOut}>
                     Sign Out
                   </DropdownMenuItem>
@@ -236,10 +236,19 @@ export function Navigation() {
 
           {/* Desktop CTA Buttons */}
           <div className="hidden lg:flex items-center gap-4">
-            <Link href="/search">
-              <Button variant="outline" size="sm">
-                <MapPin className="mr-2 h-4 w-4" />
-                Find a Class
+            <Link href="/easy-enroll">
+              <Button
+                variant="outline"
+                size="sm"
+                className="relative overflow-hidden bg-white text-blue-600 border-blue-600 shadow-sm rounded-md animate-buttonAttention focus:ring-2 focus:ring-blue-300"
+              >
+                <span className="relative z-10 flex items-center">
+                  <MapPin className="mr-2 h-4 w-4 animate-wiggle" />
+                  Find a Class
+                </span>
+
+                {/* Optional shine effect */}
+                <span className="absolute top-0 left-[-75%] w-1/2 h-full bg-blue-100/50 transform skew-x-[-20deg] animate-shine"></span>
               </Button>
             </Link>
             <Button size="sm">

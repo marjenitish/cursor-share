@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Navigation } from '@/components/shared/navigation';
-import { Heart, Brain, Target, Lightbulb, Users, Lock } from 'lucide-react';
+import { Heart, Brain, Target, Lightbulb, Users, Lock, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export default function WhoWeArePage() {
   const coreValues = [
@@ -39,7 +40,7 @@ export default function WhoWeArePage() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       {/* Hero Section */}
       <section className="bg-muted/30 py-12">
         <div className="container mx-auto px-4">
@@ -85,7 +86,7 @@ export default function WhoWeArePage() {
               Our values guide everything we do, ensuring we deliver the highest quality service to our community.
             </p>
           </div>
-          
+
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {coreValues.map((value, i) => (
               <div key={i} className="bg-card rounded-xl border p-6 hover:shadow-lg transition-shadow">
@@ -158,9 +159,19 @@ export default function WhoWeArePage() {
               <p className="text-lg text-muted-foreground">
                 SHARE classes are run by fitness leaders who are registered and accredited by Fitness Australia. All our leaders are experienced in catering for older adults and are able to provide guidance and helpful advice.
               </p>
-              <Button size="lg" className="w-full sm:w-auto">
-                Find a Class Near You
-              </Button>
+              <Link href="/easy-enroll">
+                <Button
+                  size="lg"
+                  className="relative overflow-hidden h-14 text-lg px-8 rounded-2xl bg-blue-600 text-white shadow-lg focus:ring-4 focus:ring-blue-300 group"
+                >
+                  <span className="relative z-10 flex items-center">
+                    Find Classes Near You
+                    <ArrowRight className="ml-2 h-5 w-5 animate-wiggle" />
+                  </span>
+
+                  <span className="absolute top-0 left-[-75%] w-1/2 h-full bg-white/20 transform skew-x-[-20deg] animate-shine"></span>
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

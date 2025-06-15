@@ -1,12 +1,9 @@
-'use client';
-
 import { Button } from '@/components/ui/button';
 import { Navigation } from '@/components/shared/navigation';
 import { Target, ArrowRight, CheckCircle, Users, Heart, Brain } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function MissionPage() {
-  const router = useRouter();
   const visionGoals = [
     {
       title: "Building Healthier Communities",
@@ -43,7 +40,7 @@ export default function MissionPage() {
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
-      
+
       {/* Hero Section */}
       <section className="bg-muted/30 py-12">
         <div className="container mx-auto px-4">
@@ -126,13 +123,24 @@ export default function MissionPage() {
             Be part of our mission to create healthier, more active communities across Australia.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="h-14 text-lg px-8" onClick={() => router.push('/easy-enroll')}>
-              Find a Class
-              <ArrowRight className="ml-2 h-5 w-5" />
+            <Link href="/easy-enroll">
+            <Button
+              size="lg"
+              className="relative overflow-hidden h-14 text-lg px-8 rounded-2xl bg-blue-600 text-white shadow-lg focus:ring-4 focus:ring-blue-300 group"
+            >
+              <span className="relative z-10 flex items-center">
+                Find Classes Near You
+                <ArrowRight className="ml-2 h-5 w-5 animate-wiggle" />
+              </span>
+
+              <span className="absolute top-0 left-[-75%] w-1/2 h-full bg-white/20 transform skew-x-[-20deg] animate-shine"></span>
             </Button>
-            <Button variant="outline" size="lg" className="h-14 text-lg px-8" onClick={() => router.push('/contact')}>
+            </Link>
+            <Link href="/contact">
+            <Button variant="outline" size="lg" className="h-14 text-lg px-8">
               Contact Us
             </Button>
+            </Link>
           </div>
         </div>
       </section>

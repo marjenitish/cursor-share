@@ -69,10 +69,15 @@ const config: Config = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        slowMove: {
+          '0%': { backgroundPosition: 'center top' },
+          '100%': { backgroundPosition: 'center bottom' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        slowMove: 'slowMove 20s linear infinite',
       },
     },
   },

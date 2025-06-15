@@ -3,12 +3,12 @@
     "short_name": "SHARE",
     "description": "Exercise classes for adults aged 50+",
     "icons": [{
-            "src": "/android-chrome-192x192.png",
+            "src": "/share-favicon.png",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "/android-chrome-512x512.png",
+            "src": "/share-favicon.png",
             "sizes": "512x512",
             "type": "image/png"
         }

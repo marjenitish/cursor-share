@@ -143,7 +143,7 @@ export function Sidebar({ className }: SidebarProps) {
         },
         {
           title: 'Create New',
-          href: '/dashboard/create-enrollment',
+          href: '/dashboard/easy-enroll',
         },
       ],
     },

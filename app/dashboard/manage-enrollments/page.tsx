@@ -78,7 +78,7 @@ export default function ManageEnrollmentsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Manage Enrollments</h1>
         <Button asChild>
-          <Link href="/dashboard/create-enrollment">Create Enrollment</Link>
+          <Link href="/dashboard/easy-enroll">Create Enrollment</Link>
         </Button>
       </div>
 

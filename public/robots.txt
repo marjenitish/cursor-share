@@ -1,0 +1,13 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow admin and auth pages
+Disallow: /dashboard/
+Disallow: /auth/
+Disallow: /signup/
+Disallow: /profile/
+Disallow: /instructor-portal/
+
+# Sitemap location
+Sitemap: https://share.org.au/sitemap.xml

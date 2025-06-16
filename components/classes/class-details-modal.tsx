@@ -29,7 +29,7 @@ interface ClassDetailsModalProps {
     end_time: string;
     venue: string;
     instructor_id: string;
-    instructors?: { name: string } | null;
+    instructors?: { name: string }[] | null;
   } | null;
 }
 
@@ -79,6 +79,8 @@ export function ClassDetailsModal({
   }, [classData?.id]);
 
   if (!classData) return null;
+
+  console.log('classData', classData);
 
   const handleCreateEnrollment = () => {
     // TODO: Implement create enrollment logic

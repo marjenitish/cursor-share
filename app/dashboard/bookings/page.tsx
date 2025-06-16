@@ -113,7 +113,7 @@ export default function BookingsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Bookings</h1>
         <div className="flex gap-2">
           {canManageEnrollments && (
-            <Button variant="outline\" asChild>
+            <Button variant="outline" asChild>
               <Link href="/dashboard/enrollments">
                 Manage Enrollments
               </Link>
@@ -129,8 +129,8 @@ export default function BookingsPage() {
       </div>
 
       <BookingsTable 
-        onEdit={canEdit ? handleEdit : undefined}
-        onDelete={canDelete ? handleDelete : undefined}
+        onEdit={canEdit ? handleEdit : () => {}}
+        onDelete={canDelete ? handleDelete : () => {}}
         refreshKey={refreshKey}
       />
 

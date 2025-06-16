@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Suspense } from 'react'; // Import Suspense
 import { Metadata } from 'next';
+import { Footer } from '@/components/shared/footer';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -69,6 +70,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light">
           <Suspense fallback={<div>Loading application...</div>}> {/* Wrap children with Suspense */}
             {children}
+            <Footer />
           </Suspense>
           <Toaster />
         </ThemeProvider>

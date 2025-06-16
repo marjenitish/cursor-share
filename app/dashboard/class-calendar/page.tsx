@@ -50,11 +50,14 @@ export default function ClassCalendarPage() {
           instructors (
             name
           )
-        `)
+        `) 
         .gte('date', format(startOfCurrentWeek, 'yyyy-MM-dd'))
         .lte('date', format(endOfCurrentWeek, 'yyyy-MM-dd'))
         .order('date', { ascending: true })
-        .order('start_time', { ascending: true });
+        .order('start_time', { ascending: true })
+        .returns<Class[]>();  // Add this to force correct typing
+
+      console.log('dataxx', data);
 
       if (error) {
         console.error('Error fetching classes:', error);
@@ -108,6 +111,8 @@ export default function ClassCalendarPage() {
     setIsClassModalOpen(true);
     setLoading(false);
   };
+
+  console.log('classes', classes);
 
   return (
     <div className="space-y-6">

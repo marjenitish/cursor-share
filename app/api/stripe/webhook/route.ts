@@ -128,19 +128,7 @@ export async function POST(req: Request) {
         break;
 
       case 'payment_intent.payment_failed':
-        const failedPayment = event.data.object as Stripe.PaymentIntent;
-
-        // Update enrollment status to failed
-        const { error: failureError } = await supabase
-          .from('enrollments')
-          .update({
-            payment_status: 'failed',
-            status: 'cancelled',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', failedPayment.metadata.enrollmentId);
-
-        if (failureError) throw failureError;
+        console.log('payment_intent.payment_failed event received')
         break;
 
       case 'payment_intent.canceled':
@@ -160,40 +148,15 @@ export async function POST(req: Request) {
         break;
 
       case 'payment_intent.requires_action':
-        // Handle additional authentication required
-        const actionRequired = event.data.object as Stripe.PaymentIntent;
-        console.log('Additional authentication required for:', actionRequired.id);
+        console.log('payment_intent.requires_action event received')
         break;
 
       case 'charge.refunded':
-        const refund = event.data.object as Stripe.Refund;
-
-        // Update enrollment status to refunded
-        const { error: refundError } = await supabase
-          .from('enrollments')
-          .update({
-            payment_status: 'refunded',
-            status: 'cancelled',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', (refund.metadata as any).enrollmentId);
-
-        if (refundError) throw refundError;
+        console.log('charge.refunded event received')
         break;
 
       case 'charge.dispute.created':
-        const dispute = event.data.object as Stripe.Dispute;
-
-        // Mark the enrollment as disputed
-        const { error: disputeError } = await supabase
-          .from('enrollments')
-          .update({
-            payment_status: 'disputed',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', (dispute.metadata as any).enrollmentId);
-
-        if (disputeError) throw disputeError;
+        console.log('charge.dispute.created event received')
         break;
     }
 

@@ -277,11 +277,11 @@ export function Navigation() {
                       <div className="space-y-1">
                         {section.items.map((item) => (
                           <Link
-                            key={item.href}
-                            href={item.href}
+                            key={item?.href}
+                            href={item?.href || '#'}
                             className="block py-2 text-sm hover:text-primary"
                           >
-                            {item.label}
+                            {item?.label}
                           </Link>
                         ))}
                       </div>

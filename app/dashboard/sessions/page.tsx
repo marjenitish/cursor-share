@@ -9,7 +9,10 @@ import { Loader2 } from 'lucide-react';
 import { format, isWithinInterval } from 'date-fns';
 import { SessionForm } from './components/session-form'
 import { Button } from '@/components/ui/button';
-import { Pencil } from 'lucide-react';
+import { Pencil, X, Eye } from 'lucide-react';
+import { CancellationModal } from './components/cancellation-modal';
+import { ViewSessionModal } from './components/view-session-modal';
+import { Badge } from '@/components/ui/badge';
 
 type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
 
@@ -31,6 +34,11 @@ interface Session {
   end_time: string | null;
   is_subsidised: boolean;
   class_capacity: number | null;
+  cancelled_classes?: Array<{
+    date: string;
+    reason: string;
+    cancelled_at: string;
+  }>;
   term_details?: {
     fiscal_year: number;
     start_date: string;
@@ -61,6 +69,8 @@ export default function SessionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isCancellationModalOpen, setIsCancellationModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
 
   console.log("selectedSession", selectedSession);
@@ -211,6 +221,13 @@ export default function SessionsPage() {
                               <TableCell>
                                 {formatTime(session.start_time)}
                                 {session.end_time && ` - ${formatTime(session.end_time)}`}
+                                {session.cancelled_classes && session.cancelled_classes.length > 0 && (
+                                  <div className="mt-1">
+                                    <Badge variant="destructive" className="text-xs">
+                                      {session.cancelled_classes.length} cancelled
+                                    </Badge>
+                                  </div>
+                                )}
                               </TableCell>
                               <TableCell className="font-medium">{session.code}</TableCell>
                               <TableCell>{session.name}</TableCell>
@@ -225,20 +242,45 @@ export default function SessionsPage() {
                               <TableCell>
                                 {session.instructor?.name}
                               </TableCell>
-                              <TableCell>{session.class_capacity || 'Unlimited'}</TableCell>
+                              <TableCell>
+                                {session.class_capacity || 'Unlimited'}                                
+                              </TableCell>
                               <TableCell>
                                 ${session.fee_amount.toFixed(2)}
                                 {session.is_subsidised && ' (Subsidised)'}
-                              </TableCell><TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="sm" onClick={() => {
-                                    setSelectedSession(session);
-                                    setIsEditDialogOpen(true);
-                                  }}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
+                              </TableCell>                              <TableCell>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedSession(session);
+                                      setIsViewModalOpen(true);
+                                    }}
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedSession(session);
+                                      setIsEditDialogOpen(true);
+                                    }}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedSession(session);
+                                      setIsCancellationModalOpen(true);
+                                    }}
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -273,6 +315,27 @@ export default function SessionsPage() {
             setSelectedSession(null);
             setIsEditDialogOpen(false);
           }}
+        />
+      )}
+
+      {selectedSession && (
+        <CancellationModal
+          open={isCancellationModalOpen}
+          onOpenChange={setIsCancellationModalOpen}
+          session={selectedSession}
+          onSuccess={() => {
+            fetchSessions();
+            setSelectedSession(null);
+            setIsCancellationModalOpen(false);
+          }}
+        />
+      )}
+
+      {selectedSession && (
+        <ViewSessionModal
+          open={isViewModalOpen}
+          onOpenChange={setIsViewModalOpen}
+          session={selectedSession}
         />
       )}
     </div>

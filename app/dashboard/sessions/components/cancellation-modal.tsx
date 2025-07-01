@@ -23,13 +23,42 @@ interface Session {
   id: string;
   name: string;
   code: string;
+  venue_id: string;
+  address: string;
+  instructor_id: string;
+  fee_criteria: string;
+  term: string;
+  fee_amount: number;
+  exercise_type_id: string | null;
+  term_id: number;
+  zip_code: string | null;
   day_of_week: string;
+  start_time: string;
+  end_time: string | null;
+  is_subsidised: boolean;
+  class_capacity: number | null;
+  cancelled_classes?: Array<{
+    date: string;
+    reason: string;
+    cancelled_at: string;
+  }>;
   term_details?: {
     fiscal_year: number;
     start_date: string;
     end_date: string;
   };
-  cancelled_classes?: CancelledClass[];
+  instructor?: {
+    name: string;
+    contact_no: string;
+  };
+  exercise_type?: {
+    name: string;
+  };
+  venue?: {
+    name: string;
+    street_address: string;
+    city: string;
+  };
 }
 
 interface CancellationModalProps {
@@ -126,7 +155,7 @@ export function CancellationModal({ session, open, onOpenChange, onSuccess }: Ca
   };
 
   const handleSubmit = async () => {
-    if (selectedDates.length === 0 || !reason.trim()) return;
+    if (!session || selectedDates.length === 0 || !reason.trim()) return;
     
     setIsLoading(true);
     try {
@@ -155,10 +184,13 @@ export function CancellationModal({ session, open, onOpenChange, onSuccess }: Ca
         .eq('id', session.id);
       
       if (error) throw error;
+
+      // Handle credit increases for affected customers
+      await handleCreditIncreases(selectedDates);
       
       toast({
         title: 'Success',
-        description: `Cancelled ${selectedDates.length} class(es)`,
+        description: `Cancelled ${selectedDates.length} class(es) and updated customer credits`,
       });
       
       onSuccess();
@@ -174,6 +206,106 @@ export function CancellationModal({ session, open, onOpenChange, onSuccess }: Ca
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Function to handle credit increases for affected customers
+  const handleCreditIncreases = async (cancelledDates: Date[]) => {
+    if (!session) return;
+    
+    try {
+      // Get all enrollment sessions for this session
+      const { data: enrollmentSessions, error: enrollmentError } = await supabase
+        .from('enrollment_sessions')
+        .select(`
+          *,
+          enrollment:enrollments(
+            customer_id,
+            status
+          )
+        `)
+        .eq('session_id', session.id);
+
+      if (enrollmentError) throw enrollmentError;
+
+      if (!enrollmentSessions || enrollmentSessions.length === 0) {
+        console.log('No enrollment sessions found for this session');
+        return;
+      }
+
+      // Group by customer to avoid duplicate credit increases
+      const customerCredits: { [customerId: string]: number } = {};
+
+      for (const enrollmentSession of enrollmentSessions) {
+        // Skip if enrollment is not active
+        if (enrollmentSession.enrollment?.status !== 'active') continue;
+
+        const customerId = enrollmentSession.enrollment.customer_id;
+        if (!customerId) continue;
+
+        let affectedDates = 0;
+
+        // Check each cancelled date against this enrollment
+        for (const cancelledDate of cancelledDates) {
+          const cancelledDateStr = format(cancelledDate, 'yyyy-MM-dd');
+
+          if (enrollmentSession.enrollment_type === 'partial') {
+            // For partial enrollments, check if the cancelled date is in their partial_dates
+            if (enrollmentSession.partial_dates && 
+                enrollmentSession.partial_dates.includes(cancelledDateStr)) {
+              affectedDates++;
+            }
+          } else if (enrollmentSession.enrollment_type === 'trial') {
+            // For trial enrollments, check if the cancelled date matches their trial_date
+            if (enrollmentSession.trial_date === cancelledDateStr) {
+              affectedDates++;
+            }
+          } else {
+            // For full enrollments, all cancelled dates affect them
+            affectedDates++;
+          }
+        }
+
+        // Add credits for affected dates
+        if (affectedDates > 0) {
+          customerCredits[customerId] = (customerCredits[customerId] || 0) + affectedDates;
+        }
+      }
+
+      // Update customer credits
+      for (const [customerId, creditIncrease] of Object.entries(customerCredits)) {
+        // Get current customer credit
+        const { data: customerData, error: customerError } = await supabase
+          .from('customers')
+          .select('customer_credit')
+          .eq('id', customerId)
+          .single();
+
+        if (customerError) {
+          console.error(`Error fetching customer ${customerId} credit:`, customerError);
+          continue;
+        }
+
+        const currentCredit = customerData?.customer_credit || 0;
+        const newCredit = currentCredit + creditIncrease;
+
+        // Update customer credit
+        const { error: updateError } = await supabase
+          .from('customers')
+          .update({ customer_credit: newCredit })
+          .eq('id', customerId);
+
+        if (updateError) {
+          console.error(`Error updating customer ${customerId} credit:`, updateError);
+        } else {
+          console.log(`Updated customer ${customerId} credit: ${currentCredit} -> ${newCredit} (+${creditIncrease})`);
+        }
+      }
+
+      console.log(`Credit updates completed for ${Object.keys(customerCredits).length} customers`);
+    } catch (error) {
+      console.error('Error handling credit increases:', error);
+      // Don't throw error here to avoid blocking the cancellation
     }
   };
 
@@ -237,7 +369,6 @@ export function CancellationModal({ session, open, onOpenChange, onSuccess }: Ca
                       <Checkbox
                         checked={cancelled || selected}
                         disabled={cancelled}
-                        readOnly
                       />
                       <span className="text-sm">
                         {format(date, 'MMM dd, yyyy')}

@@ -9,6 +9,7 @@ import { CreditCard, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Session } from '@/app/easy-enroll/page';
 import type { EnrollmentSessionData } from '@/app/easy-enroll/components/enrollment-wizard';
+import { createBrowserClient } from '@/lib/supabase/client';
 
 // Initialize Stripe with publishable key
 const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY 
@@ -25,12 +26,54 @@ interface CheckoutFormProps {
   customer: any;
 }
 
-function CheckoutForm({ selectedClasses, enrollmentSessionsData, enrollmentData, enrollmentId, onComplete, totalAmount, customer }: CheckoutFormProps) {
+function CheckoutForm({ selectedClasses, enrollmentSessionsData, 
+  enrollmentData, enrollmentId, onComplete, totalAmount, customer }: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const [fetchedCustomer, setFetchedCustomer] = useState<any>(null);
+  
+  console.log("customerXXX", customer);
+
+  const supabase = createBrowserClient();
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Get authenticated user
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError) throw authError;
+        if (!user) throw new Error('Not authenticated');        
+
+        console.log('User authenticated:', user.id);
+
+        // Get customer profile
+        const { data: customerData, error: customerError } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (customerError) throw customerError;
+        if (!customerData) throw new Error('Customer profile not found');
+        setFetchedCustomer(customerData);
+
+        console.log('Customer profile found:', customerData.id);
+
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +99,7 @@ function CheckoutForm({ selectedClasses, enrollmentSessionsData, enrollmentData,
           amount: Math.round(totalAmount * 100),
           currency: 'aud',
           metadata: {      
-            customerId: customer.id,
+            customerId: fetchedCustomer?.id || "N/A",
             enrollmentData: JSON.stringify(enrollmentSessionsData.map(session => ({
               id: session.session_id,
               type: session.enrollment_type,

@@ -31,6 +31,7 @@ import { TerminationModal } from '@/components/customers/termination-modal';
 import { getDayName } from '@/lib/utils';
 import Link from 'next/link';
 import { Table, TableHeader, TableBody, TableCell, TableRow, TableHead } from '@/components/ui/table';
+import { CancellationRequestModal } from './components/cancellation-request-modal';
 
 const customerSchema = z.object({
   surname: z.string().min(1, 'Surname is required'),
@@ -89,6 +90,11 @@ type EnrollmentSession = {
         day_of_week: string;
         start_time: string;
         end_time: string | null;
+        term_details?: {
+            fiscal_year: number;
+            start_date: string;
+            end_date: string;
+        };
         exercise_type: {
             id: string;
             name: string;
@@ -143,6 +149,8 @@ export default function ProfilePage() {
   const [enrollments, setEnrollments] = useState<EnrollmentWithSessions[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [selectedEnrollmentSession, setSelectedEnrollmentSession] = useState<any>(null);
 
   const form = useForm<z.infer<typeof customerSchema>>({
     resolver: zodResolver(customerSchema),
@@ -205,6 +213,7 @@ export default function ProfilePage() {
             *,
             session:sessions(
               *,
+              term_details:terms(fiscal_year, start_date, end_date),
               exercise_type:exercise_types(*),
               instructor:instructors(*),
               venue:venues(*)
@@ -866,7 +875,7 @@ export default function ProfilePage() {
                                   <div className="grid grid-cols-2 gap-4 text-sm">
                                     <div>
                                       <p className="text-gray-500">Instructor</p>
-                                      <p>{enrollmentSession.session?.instructor?.name}</p>
+                                      <p>{enrollmentSession.session?.instructor?.first_name} {enrollmentSession.session?.instructor?.last_name}</p>
                                     </div>
                                     <div>
                                       <p className="text-gray-500">Venue</p>
@@ -901,6 +910,18 @@ export default function ProfilePage() {
                                       </div>
                                     </div>
                                   )}
+                                  <div className="flex justify-end mt-2">
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedEnrollmentSession(enrollmentSession);
+                                        setCancelModalOpen(true);
+                                      }}
+                                    >
+                                      Cancel Class
+                                    </Button>
+                                  </div>
                                 </div>
                               </CardContent>
                             </Card>
@@ -1014,6 +1035,18 @@ export default function ProfilePage() {
         customerId={customer?.id}
         onCancel={handlePAQSubmit}
       />
+      {selectedEnrollmentSession && (
+        <CancellationRequestModal
+          open={cancelModalOpen}
+          onOpenChange={setCancelModalOpen}
+          enrollmentSession={selectedEnrollmentSession}
+          onSuccess={() => {
+            setCancelModalOpen(false);
+            setSelectedEnrollmentSession(null);
+            // Optionally refresh data here
+          }}
+        />
+      )}
     </div>
   );
 }

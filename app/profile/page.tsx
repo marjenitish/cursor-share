@@ -74,6 +74,16 @@ type Payment = {
     };
 };
 
+type CancellationRequest = {
+  date: string;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_at: string;
+  medical_certificate_url: string;
+  admin_notes?: string;
+  processed_at?: string;
+};
+
 type EnrollmentSession = {
     id: string;
     enrollment_id: string;
@@ -83,6 +93,7 @@ type EnrollmentSession = {
     trial_date: string | null;
     partial_dates: string[] | null;
     enrollment_type: string;
+    cancelled_dates?: CancellationRequest[];
     session: {
         id: string;
         name: string;
@@ -101,8 +112,7 @@ type EnrollmentSession = {
         };
         instructor: {
             id: string;
-            first_name: string;
-            last_name: string;
+            name: string;
         };
         venue: {
             id: string;
@@ -339,6 +349,19 @@ export default function ProfilePage() {
 
   const calculateTotalPaid = () => {
     return payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  };
+
+  const getEnrollmentTypeLabel = (enrollmentType: string) => {
+    switch (enrollmentType) {
+      case 'full':
+        return 'Full Term';
+      case 'partial':
+        return 'Partial';
+      case 'trial':
+        return 'Trial';
+      default:
+        return enrollmentType;
+    }
   };
 
   // console.log("loading", loading)
@@ -720,6 +743,7 @@ export default function ProfilePage() {
             <TabsList>
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="sessions">Sessions</TabsTrigger>
+              <TabsTrigger value="cancellations">Cancellation Requests</TabsTrigger>
               <TabsTrigger value="payments">Payments</TabsTrigger>
             </TabsList>
 
@@ -875,7 +899,7 @@ export default function ProfilePage() {
                                   <div className="grid grid-cols-2 gap-4 text-sm">
                                     <div>
                                       <p className="text-gray-500">Instructor</p>
-                                      <p>{enrollmentSession.session?.instructor?.first_name} {enrollmentSession.session?.instructor?.last_name}</p>
+                                      <p>{enrollmentSession.session?.instructor?.name}</p>
                                     </div>
                                     <div>
                                       <p className="text-gray-500">Venue</p>
@@ -930,6 +954,176 @@ export default function ProfilePage() {
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="cancellations">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Cancellation Requests</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    // Filter enrollments that have sessions with cancellation requests
+                    const enrollmentsWithCancellations = enrollments.filter(enrollment => 
+                      enrollment.sessions.some(session => 
+                        session.cancelled_dates && session.cancelled_dates.length > 0
+                      )
+                    );
+
+                    if (enrollmentsWithCancellations.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-muted-foreground">
+                          No cancellation requests found
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-6">
+                        {enrollmentsWithCancellations.map((enrollment) => {
+                          // Filter sessions that have cancellation requests
+                          const sessionsWithCancellations = enrollment.sessions.filter(session => 
+                            session.cancelled_dates && session.cancelled_dates.length > 0
+                          );
+
+                          return (
+                            <div key={enrollment.id} className="space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h3 className="text-lg font-semibold">
+                                    Enrollment #{enrollment.id.slice(0, 8)}
+                                  </h3>
+                                  <div className="flex gap-2 mt-1">
+                                    <Badge variant="outline">
+                                      {enrollment.enrollment_type}
+                                    </Badge>
+                                    <Badge variant={enrollment.status === 'active' ? 'default' : 'secondary'}>
+                                      {enrollment.status}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  Enrolled on {format(new Date(enrollment.created_at), 'PPP')}
+                                </p>
+                              </div>
+
+                              {sessionsWithCancellations.map((enrollmentSession) => (
+                              <Card key={enrollmentSession.id}>
+                                <CardHeader>
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <h4 className="text-lg font-semibold">
+                                        {enrollmentSession.session?.name} - {enrollmentSession.session?.code}
+                                      </h4>
+                                      <p className="text-sm text-muted-foreground">
+                                        {enrollmentSession.session?.exercise_type?.name} • {enrollmentSession.session?.day_of_week} at {enrollmentSession.session?.start_time}
+                                      </p>
+                                      <p className="text-sm text-muted-foreground">
+                                        {enrollmentSession.session?.venue?.name}
+                                      </p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      {enrollmentSession.is_free_trial && (
+                                        <Badge variant="secondary">Trial</Badge>
+                                      )}
+                                      {enrollmentSession.enrollment_type === 'partial' && (
+                                        <Badge variant="secondary">Partial</Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CardHeader>
+                                <CardContent>
+                                  <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                      <div>
+                                        <p className="font-medium">Instructor</p>
+                                        <p>{enrollmentSession.session?.instructor?.name}</p>
+                                      </div>
+                                      <div>
+                                        <p className="font-medium">Enrollment Type</p>
+                                        <p>{getEnrollmentTypeLabel(enrollmentSession.enrollment_type)}</p>
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      <h5 className="font-medium mb-3">Cancellation Requests</h5>
+                                      <div className="space-y-3">
+                                        {enrollmentSession.cancelled_dates?.map((cancellation, index) => (
+                                          <Card key={index} className="p-4">
+                                            <div className="flex justify-between items-start mb-3">
+                                              <div>
+                                                <p className="font-medium">
+                                                  {format(new Date(cancellation.date), 'EEEE, MMMM dd, yyyy')}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                  Requested on {format(new Date(cancellation.requested_at), 'MMM dd, yyyy HH:mm')}
+                                                </p>
+                                              </div>
+                                              <div className="flex gap-2">
+                                                {cancellation.status === 'pending' && (
+                                                  <Badge variant="secondary">Pending Review</Badge>
+                                                )}
+                                                {cancellation.status === 'approved' && (
+                                                  <Badge variant="default">Approved</Badge>
+                                                )}
+                                                {cancellation.status === 'rejected' && (
+                                                  <Badge variant="destructive">Rejected</Badge>
+                                                )}
+                                              </div>
+                                            </div>
+                                            
+                                            <div className="space-y-2">
+                                              <div>
+                                                <p className="text-sm font-medium">Reason</p>
+                                                <p className="text-sm text-muted-foreground">{cancellation.reason}</p>
+                                              </div>
+                                              
+                                              {cancellation.medical_certificate_url && (
+                                                <div>
+                                                  <p className="text-sm font-medium">Medical Certificate</p>
+                                                  <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => window.open(cancellation.medical_certificate_url, '_blank')}
+                                                  >
+                                                    <Download className="h-4 w-4 mr-1" />
+                                                    View Certificate
+                                                  </Button>
+                                                </div>
+                                              )}
+                                              
+                                              {cancellation.admin_notes && (
+                                                <div>
+                                                  <p className="text-sm font-medium">Admin Notes</p>
+                                                  <p className="text-sm text-muted-foreground">{cancellation.admin_notes}</p>
+                                                </div>
+                                              )}
+                                              
+                                              {cancellation.processed_at && (
+                                                <div>
+                                                  <p className="text-sm font-medium">Processed</p>
+                                                  <p className="text-sm text-muted-foreground">
+                                                    {format(new Date(cancellation.processed_at), 'MMM dd, yyyy HH:mm')}
+                                                  </p>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </Card>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1043,7 +1237,8 @@ export default function ProfilePage() {
           onSuccess={() => {
             setCancelModalOpen(false);
             setSelectedEnrollmentSession(null);
-            // Optionally refresh data here
+            // Refresh data to show updated cancellation requests
+            setRefreshKey(prev => prev + 1);
           }}
         />
       )}

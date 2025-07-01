@@ -153,7 +153,7 @@ export function Sidebar({ className }: SidebarProps) {
       children: [
         {
           title: 'From Customer',
-          href: '/dashboard/customer-cancel-requests',
+          href: '/dashboard/customer-session-cancellations',
         },
         {
           title: 'From Instructor',

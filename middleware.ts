@@ -17,6 +17,17 @@ export async function middleware(request: NextRequest) {
 
   // Auth routes: if user is logged in and tries to access login/signup, redirect to protected page
   if (user && (pathname === '/auth' || pathname === '/signup')) {
+    const { data: profile, error } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single<{ role: UserRole }>();
+
+    console.log("XXX-profile", profile)
+
+    if (error || !profile) {
+      return NextResponse.redirect(new URL('/profile', request.url));
+    }
     return NextResponse.redirect(new URL('/', request.url));
   }
 
@@ -26,24 +37,24 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(`/auth?redirect_to=${pathname}`, request.url));
   }
 
-  
+
   console.log("yyy", pathname.startsWith('/dashboard'))
 
 
   // Admin routes: if user is logged in but not an admin and tries to access admin routes, redirect to protected
-  if (user && pathname.startsWith('/dashboard')) {  
-    
+  if (user && pathname.startsWith('/dashboard')) {
+
     const { data: profile, error } = await supabase
-    .from('users')
-    .select('role')
-    .eq('id', user.id)
-    .single<{ role: UserRole }>();
-    
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single<{ role: UserRole }>();
+
     console.log("XXX-profile", profile)
 
-  if (error || !profile) {
-    return NextResponse.redirect(new URL('/auth?redirect_to=/dashboard', request.url));    
-  }
+    if (error || !profile) {
+      return NextResponse.redirect(new URL('/auth?redirect_to=/dashboard', request.url));
+    }
 
     console.log("XXX")
     console.log("userRole", profile.role)
@@ -51,7 +62,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/auth?redirect_to=/dashboard', request.url));
     }
   }
-  
+
 
   return response;
 }

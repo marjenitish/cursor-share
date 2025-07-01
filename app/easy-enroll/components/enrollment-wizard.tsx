@@ -85,7 +85,8 @@ const PAQ_QUESTIONS = [
   }
 ];
 
-export function EnrollmentWizard({ isOpen, onClose, selectedSessions, totalAmount, enrollmentSessionsData }: EnrollmentWizardProps) {
+export function EnrollmentWizard({ isOpen, onClose, selectedSessions, 
+  totalAmount, enrollmentSessionsData }: EnrollmentWizardProps) {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     // Customer form data
@@ -199,7 +200,7 @@ export function EnrollmentWizard({ isOpen, onClose, selectedSessions, totalAmoun
             <h3 className="text-lg font-semibold">Personal Information</h3>
             <EnrollmentInfo onFormDataUpdate={handleFormDataUpdate} />
             <div className="flex justify-end">
-              <Button onClick={() => setStep(2)}>Next</Button>
+              <Button onClick={() => setStep(3)}>Next</Button>
             </div>
           </div>
         );

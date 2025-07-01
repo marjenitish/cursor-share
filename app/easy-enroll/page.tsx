@@ -23,7 +23,8 @@ import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format as dateFormat } from "date-fns";
 import { format as timeFormat } from "date-fns";
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
 
 type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday';
 
@@ -127,6 +128,8 @@ export default function EasyEnrollPage() {
     const [showExerciseTypeGuide, setShowExerciseTypeGuide] = useState(true);
     const [showSessionGuide, setShowSessionGuide] = useState(false);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const router = useRouter();
+    const { toast } = useToast();
 
     // Load saved state from localStorage on initial load
     useEffect(() => {
@@ -141,11 +144,11 @@ export default function EasyEnrollPage() {
             try {
                 const parsedSessions: SelectedSession[] = JSON.parse(savedSessions);
                 setSelectedSessions(new Set(parsedSessions.map(s => s.id)));
-                
+
                 // Restore trial dates
                 const trialDatesMap: Record<string, Date> = {};
                 const partialDatesMap: Record<string, Date[]> = {};
-                
+
                 parsedSessions.forEach(session => {
                     if (session.trialDate) {
                         trialDatesMap[session.id] = new Date(session.trialDate);
@@ -154,7 +157,7 @@ export default function EasyEnrollPage() {
                         partialDatesMap[session.id] = session.partialDates.map(date => new Date(date));
                     }
                 });
-                
+
                 setTrialDates(trialDatesMap);
                 setPartialDates(partialDatesMap);
             } catch (error) {
@@ -167,7 +170,7 @@ export default function EasyEnrollPage() {
     useEffect(() => {
         if (selectedExerciseType) {
             localStorage.setItem(STORAGE_KEYS.SELECTED_EXERCISE_TYPE, selectedExerciseType);
-        } 
+        }
         // else {
         //     localStorage.removeItem(STORAGE_KEYS.SELECTED_EXERCISE_TYPE);
         // }
@@ -295,8 +298,8 @@ export default function EasyEnrollPage() {
                 .eq('term', `Term${currentTerm.term_number}`)
                 .order('day_of_week')
                 .order('start_time');
-            
-            
+
+
             const { data: allSessionsData, error: allSessionsError } = await query;
             if (allSessionsError) throw allSessionsError;
             setAllSessions(allSessionsData || []);
@@ -369,16 +372,16 @@ export default function EasyEnrollPage() {
 
     const isDateInTermRange = (date: Date, session: Session) => {
         if (!session.terms?.start_date || !session.terms?.end_date) return false;
-        
+
         const today = new Date();
         today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate date comparison
-        
+
         const startDate = new Date(session.terms.start_date);
         const endDate = new Date(session.terms.end_date);
-        
+
         // Check if date is before today
         if (date < today) return false;
-        
+
         // Check if date is within term range
         if (date < startDate || date > endDate) return false;
 
@@ -446,18 +449,52 @@ export default function EasyEnrollPage() {
         localStorage.removeItem(STORAGE_KEYS.SELECTED_SESSIONS);
     };
 
-    const handleProceed = () => {
+    const handleProceed = async () => {
         if (!user) {
             setIsAuthCheckOpen(true);
         } else {
-            setIsWizardOpen(true);
+            // Get customer profile
+            const { data: customerData, error: customerError } = await supabase
+                .from('customers')
+                .select('*')
+                .eq('user_id', user.id);
+
+            if (customerError) throw customerError;
+
+            if (customerError || customerData.length === 0) {
+
+                if (customerData[0].paq_status != 'accepted') {
+                    toast({
+                        title: 'Your PAQ form is not accepted',
+                        description: 'Your PAQ form is not accepted. Please contact support.',
+                    });
+                } else {
+                    toast({
+                        title: 'Fill up your profile',
+                        description: 'Complete your profile to continue.',
+                    });
+                }
+                // Navigate to returnTo path if it exists, otherwise to dashboard
+                router.push('/profile');
+            } else {
+                if (customerData[0].paq_status != 'accepted') {
+                    toast({
+                        title: 'Your PAQ form is not accepted',
+                        description: 'Your PAQ form is not accepted. Please contact support.',
+                    });
+                    // Navigate to returnTo path if it exists, otherwise to dashboard
+                    router.push('/profile');
+                } else {
+                    setIsWizardOpen(true);
+                }
+            }
         }
     };
 
     // Get all exercise types that have selected sessions
     const getSelectedExerciseTypes = () => {
         const selectedTypes = new Set<string>();
-        
+
         // Add the currently selected exercise type if it exists
         if (selectedExerciseType) {
             selectedTypes.add(selectedExerciseType);
@@ -478,10 +515,10 @@ export default function EasyEnrollPage() {
         const today = new Date();
         const startDate = new Date(session.terms?.start_date || '');
         const endDate = new Date(session.terms?.end_date || '');
-        
+
         // If today is after end date, return start date
         if (today > endDate) return startDate;
-        
+
         // If today is before start date, return start date
         if (today < startDate) return startDate;
 
@@ -513,8 +550,8 @@ export default function EasyEnrollPage() {
 
                 const enrollmentData: EnrollmentSessionData = {
                     session_id: session.id,
-                    enrollment_type: trialDates[id] ? 'trial' : 
-                                  partialDates[id]?.length ? 'partial' : 'full',
+                    enrollment_type: trialDates[id] ? 'trial' :
+                        partialDates[id]?.length ? 'partial' : 'full',
                     fee_amount: calculateSessionFee(session, id),
                     session_details: {
                         name: session.name,
@@ -552,7 +589,7 @@ export default function EasyEnrollPage() {
     return (
         <div className="min-h-screen bg-background">
             <Navigation />
-            
+
             <div className="flex h-[calc(100vh-64px)] relative">
                 {/* Mobile Sidebar Toggle */}
                 <button
@@ -567,7 +604,7 @@ export default function EasyEnrollPage() {
                     <div className="p-6 space-y-6">
                         <Card className="bg-gradient-to-br from-secondary/10 via-background to-tertiary/10 border-none shadow-lg">
                             <CardHeader className="space-y-4">
-                                <CardTitle className="text-primary text-2xl">Enrollment</CardTitle>                            
+                                <CardTitle className="text-primary text-2xl">Enrollment</CardTitle>
                                 {currentTerm && (
                                     <p className="text-sm text-muted-foreground">
                                         Current Term: FY {currentTerm.fiscal_year} - Term {currentTerm.term_number}
@@ -625,9 +662,8 @@ export default function EasyEnrollPage() {
                                                         />
                                                         <Label
                                                             htmlFor={type.id}
-                                                            className={`flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer ${
-                                                                showExerciseTypeGuide && index === 0 ? 'animate-bounce' : ''
-                                                            }`}
+                                                            className={`flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer ${showExerciseTypeGuide && index === 0 ? 'animate-bounce' : ''
+                                                                }`}
                                                         >
                                                             <div className="space-y-1 text-center">
                                                                 <div className="font-medium">{type.name}</div>
@@ -683,9 +719,8 @@ export default function EasyEnrollPage() {
                                                                                                 setShowSessionGuide(false);
                                                                                             }
                                                                                         }}
-                                                                                        className={`${
-                                                                                            showSessionGuide && index === 0 ? 'animate-bounce' : ''
-                                                                                        }`}
+                                                                                        className={`${showSessionGuide && index === 0 ? 'animate-bounce' : ''
+                                                                                            }`}
                                                                                     />
                                                                                     {showSessionGuide && index === 0 && (
                                                                                         <div className="absolute -top-8 left-2 ml-20 -translate-x-1/2 bg-primary text-primary-foreground px-2 py-1 rounded-lg whitespace-nowrap text-[10px] font-normal shadow-lg animate-fade-in z-50">
@@ -779,7 +814,7 @@ export default function EasyEnrollPage() {
                                     <h2 className="text-lg font-semibold text-primary">Selected Sessions</h2>
                                     {selectedSessions.size > 0 && (
                                         <div className="flex flex-col space-y-2 sm:flex-row sm:space-y-0 sm:space-x-2">
-                                            <Button 
+                                            <Button
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={clearCart}
@@ -787,7 +822,7 @@ export default function EasyEnrollPage() {
                                             >
                                                 Clear
                                             </Button>
-                                            <Button 
+                                            <Button
                                                 size="sm"
                                                 className="w-full sm:w-auto bg-primary hover:bg-primary/90"
                                                 onClick={handleProceed}
@@ -1009,7 +1044,7 @@ export default function EasyEnrollPage() {
 
                 {/* Overlay for mobile */}
                 {isSidebarOpen && (
-                    <div 
+                    <div
                         className="fixed inset-0 bg-black/50 z-30 md:hidden"
                         onClick={() => setIsSidebarOpen(false)}
                     />

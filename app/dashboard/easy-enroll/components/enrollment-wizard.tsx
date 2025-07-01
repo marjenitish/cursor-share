@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { Loader2, CheckCircle2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export type EnrollmentSessionData = {
     session_id: string;
@@ -45,6 +46,8 @@ export function EnrollmentWizard({
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const supabase = createBrowserClient();
+    const [ createdEnrollment, setCreatedEnrollment ] = useState<any>(null);
+    const router = useRouter();
 
     const handleEnroll = async () => {
         setIsLoading(true);
@@ -64,6 +67,7 @@ export function EnrollmentWizard({
                 .single();
 
             if (enrollmentError) throw enrollmentError;
+            setCreatedEnrollment(enrollment);
 
             // Create enrollment sessions
             const enrollmentSessions = sessions.map(session => ({
@@ -114,6 +118,7 @@ export function EnrollmentWizard({
             localStorage.removeItem('dashboard_easy_enroll_selected_customer');
         }
         onClose();
+        router.push(`/dashboard/view-enrollment/${createdEnrollment?.id}`);
     };
 
     return (

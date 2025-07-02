@@ -54,6 +54,38 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
       }
 
       if (authData.user) {
+        // Check if user is disabled in raw_app_meta_data
+        const rawAppMetaData = authData.user.app_metadata;
+        if (rawAppMetaData?.disabled === true) {
+          // User is blocked, sign them out and show error
+          await supabase.auth.signOut();
+          toast({
+            title: 'Account Blocked',
+            description: rawAppMetaData.disabled_reason || 'Your account has been blocked by an administrator.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        // Check if user has a customer record that's blocked
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('status, block_note')
+          .eq('user_id', authData.user.id)
+          .single();
+
+        if (customer && customer.status === 'blocked') {
+          // Customer is blocked, sign them out and show error
+          await supabase.auth.signOut();
+          toast({
+            title: 'Account Blocked',
+            description: customer.block_note || 'Your account has been blocked by an administrator.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        // User is not blocked, proceed with login
         // Save user session to localStorage
         localStorage.setItem('shareUserSession', JSON.stringify(authData.session));
         

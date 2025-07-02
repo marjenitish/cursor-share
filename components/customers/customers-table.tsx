@@ -14,13 +14,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Search, Eye } from 'lucide-react';
+import { Pencil, Search, Eye, Ban, Unlock } from 'lucide-react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { format } from 'date-fns';
 import { usePermissions } from '@/components/providers/permission-provider';
 
 interface CustomersTableProps {
   onEdit?: (customer: any) => void;
+  onBlock?: (customer: any) => void;
+  onUnblock?: (customer: any) => void;
   refreshKey: number;
   selectedCustomers: string[];
   onSelectedCustomersChange: (ids: string[]) => void;
@@ -28,6 +30,8 @@ interface CustomersTableProps {
 
 export function CustomersTable({
   onEdit,
+  onBlock,
+  onUnblock,
   refreshKey,
   selectedCustomers,
   onSelectedCustomersChange,
@@ -197,6 +201,28 @@ export function CustomersTable({
                       >
                         <Pencil className="h-4 w-4" />
                         <span className="sr-only">Edit</span>
+                      </Button>
+                    )}
+                    {onBlock && customer.status !== 'blocked' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onBlock(customer)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Ban className="h-4 w-4" />
+                        <span className="sr-only">Block</span>
+                      </Button>
+                    )}
+                    {onUnblock && customer.status === 'blocked' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onUnblock(customer)}
+                        className="text-green-500 hover:text-green-700 hover:bg-green-50"
+                      >
+                        <Unlock className="h-4 w-4" />
+                        <span className="sr-only">Unblock</span>
                       </Button>
                     )}
                   </div>

@@ -37,6 +37,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(`/auth?redirect_to=${pathname}`, request.url));
   }
 
+  // Check if user is blocked (for logged-in users)
+  if (user) {
+    const { data: customer, error } = await supabase
+      .from('customers')
+      .select('status, block_note')
+      .eq('user_id', user.id)
+      .single();
+
+    // if (!error && customer && customer.status === 'blocked') {
+    //   // User is blocked, redirect to blocked page
+    //   return NextResponse.redirect(new URL('/blocked', request.url));
+    // }
+  }
+
 
   console.log("yyy", pathname.startsWith('/dashboard'))
 

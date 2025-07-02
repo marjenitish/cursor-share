@@ -1,20 +1,25 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CustomersTable } from '@/components/customers/customers-table';
 import { CustomerModal } from '@/components/customers/customer-modal';
 import { MarketingModal } from '@/components/customers/marketing-modal';
 import { NewCustomerWizard } from '@/components/customers/new-customer-wizard';
+import { BlockCustomerModal } from '@/components/customers/block-customer-modal';
+import { UnblockCustomerModal } from '@/components/customers/unblock-customer-modal';
 import { useToast } from '@/hooks/use-toast';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { usePermissions } from '@/components/providers/permission-provider';
+import { blockCustomer, unblockCustomer } from '@/app/actions/customer';
 
 export default function CustomersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [isMarketingModalOpen, setIsMarketingModalOpen] = useState(false);
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
+  const [isUnblockModalOpen, setIsUnblockModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -30,6 +35,16 @@ export default function CustomersPage() {
 
   const handleCreate = () => {
     setIsWizardOpen(true);
+  };
+
+  const handleBlockCustomer = (customer: any) => {
+    setSelectedCustomer(customer);
+    setIsBlockModalOpen(true);
+  };
+
+  const handleUnblockCustomer = (customer: any) => {
+    setSelectedCustomer(customer);
+    setIsUnblockModalOpen(true);
   };
 
   const handleSubmit = async (data: any) => {
@@ -111,16 +126,71 @@ export default function CustomersPage() {
     }
   };
 
+  const handleBlockCustomerSubmit = async (note: string) => {
+    try {
+      if (selectedCustomer) {
+        const result = await blockCustomer(selectedCustomer.id, note);
+        
+        if (result.success) {
+          toast({
+            title: 'Success',
+            description: 'Customer blocked successfully and login disabled',
+          });
+        } else {
+          throw new Error(result.error || 'Failed to block customer');
+        }
+      }
+
+      setIsBlockModalOpen(false);
+      setSelectedCustomer(null);
+      setRefreshKey(prev => prev + 1);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUnblockCustomerSubmit = async () => {
+    try {
+      if (selectedCustomer) {
+        const result = await unblockCustomer(selectedCustomer.id);
+        
+        if (result.success) {
+          toast({
+            title: 'Success',
+            description: 'Customer unblocked successfully and login enabled',
+          });
+        } else {
+          throw new Error(result.error || 'Failed to unblock customer');
+        }
+      }
+
+      setIsUnblockModalOpen(false);
+      setSelectedCustomer(null);
+      setRefreshKey(prev => prev + 1);
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
   const canCreate = hasPermission('customer_create');
   const canEdit = hasPermission('customer_update');
   const canRead = hasPermission('customer_read');
+  const canBlock = hasPermission('customer_block');
 
   if (!canRead) {
     return (
       <div className="flex h-96 items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">You don't have permission to manage CMS content.</p>
+          <p className="text-muted-foreground">You don't have permission to manage customers.</p>
         </div>
       </div>
     );
@@ -151,6 +221,8 @@ export default function CustomersPage() {
       {canRead && (
         <CustomersTable
           onEdit={canEdit ? handleEdit : undefined}
+          onBlock={canBlock ? handleBlockCustomer : undefined}
+          onUnblock={canBlock ? handleUnblockCustomer : undefined}
           refreshKey={refreshKey}
           selectedCustomers={selectedCustomers}
           onSelectedCustomersChange={setSelectedCustomers}
@@ -181,6 +253,23 @@ export default function CustomersPage() {
         onSubmit={handleSendMarketing}
         selectedCount={selectedCustomers.length}
       />
+
+      {canBlock && (
+        <>
+          <BlockCustomerModal
+            open={isBlockModalOpen}
+            onOpenChange={setIsBlockModalOpen}
+            customer={selectedCustomer}
+            onSubmit={handleBlockCustomerSubmit}
+          />
+          <UnblockCustomerModal
+            open={isUnblockModalOpen}
+            onOpenChange={setIsUnblockModalOpen}
+            customer={selectedCustomer}
+            onSubmit={handleUnblockCustomerSubmit}
+          />
+        </>
+      )}
     </div>
   );
 }

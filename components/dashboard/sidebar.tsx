@@ -191,8 +191,13 @@ export function Sidebar({ className }: SidebarProps) {
     },
     {
       title: 'Reports',
-      href: '/dashboard/reports',
       icon: BarChart4,
+      children: [
+        {
+          title: 'Cancellation Reports',
+          href: '/dashboard/reports/class-cancellation-reports',
+        },
+      ],
     },    
     {
       title: 'Vendors',

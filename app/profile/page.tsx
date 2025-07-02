@@ -32,6 +32,7 @@ import { getDayName } from '@/lib/utils';
 import Link from 'next/link';
 import { Table, TableHeader, TableBody, TableCell, TableRow, TableHead } from '@/components/ui/table';
 import { CancellationRequestModal } from './components/cancellation-request-modal';
+import { sendCustomerProfileNotification } from '@/app/actions/email';
 
 const customerSchema = z.object({
   surname: z.string().min(1, 'Surname is required'),
@@ -269,17 +270,22 @@ export default function ProfilePage() {
 
     setSubmitting(true);
     try {
+      let customerData;
+      
       if (customer) {
         // Update existing customer profile
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('customers')
           .update({
             ...values,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', customer.id);
+          .eq('id', customer.id)
+          .select()
+          .single();
 
         if (error) throw error;
+        customerData = data;
 
         toast({
           title: 'Success',
@@ -287,21 +293,37 @@ export default function ProfilePage() {
         });
       } else {
         // Create new customer profile
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('customers')
           .insert([{
             ...values,
             user_id: user.id,
             status: 'Active',
-          }]);
+          }])
+          .select()
+          .single();
 
         if (error) throw error;
+        customerData = data;
 
         toast({
           title: 'Success',
           description: 'Profile created successfully',
         });
       }
+
+      // Send email notification to admins
+      if (customerData) {
+        const action = customer ? 'updated' : 'created';
+        const emailResult = await sendCustomerProfileNotification(customerData, action);
+        
+        if (emailResult.success) {
+          console.log('Email notification result:', emailResult.message);
+        } else {
+          console.error('Email notification failed:', emailResult.error);
+        }
+      }
+
       setEditing(false);
       setRefreshKey(prev => prev + 1);
     } catch (error: any) {

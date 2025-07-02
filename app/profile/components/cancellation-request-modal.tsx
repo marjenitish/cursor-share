@@ -140,7 +140,7 @@ export function CancellationRequestModal({
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('documents')
+        .from('bookings')
         .getPublicUrl(filePath);
 
       return publicUrl;

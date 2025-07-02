@@ -8,12 +8,11 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, User, Calendar, CreditCard, CheckCircle, XCircle, Clock, MapPin, FileText, AlertCircle } from 'lucide-react';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { PAQProfileForm } from '@/components/profile/paq-profile-form';
 import { getDayName } from '@/lib/utils';
-import { Calendar, Clock, MapPin, AlertCircle } from 'lucide-react';
 import { usePermissions } from '@/components/providers/permission-provider';
 
 export default function CustomerDetailsPage({ params }: { params: { id: string } }) {
@@ -22,6 +21,7 @@ export default function CustomerDetailsPage({ params }: { params: { id: string }
   const [userProfile, setUserProfile] = useState<any>(null);
   const [bookings, setBookings] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const router = useRouter();
   const { toast } = useToast();
   const supabase = createBrowserClient();
@@ -53,7 +53,7 @@ export default function CustomerDetailsPage({ params }: { params: { id: string }
         // Step 1: Fetch enrollments for the customer
         const { data: enrollments, error: enrollmentsError } = await supabase
           .from('enrollments')
-          .select('id')
+          .select('id, created_at')
           .eq('customer_id', params.id); // Use params.id here
 
         if (enrollmentsError) {
@@ -114,6 +114,157 @@ export default function CustomerDetailsPage({ params }: { params: { id: string }
           .order('payment_date', { ascending: false });
 
         setPayments(paymentsData || []);
+
+        // Step 4: Fetch comprehensive history data
+        const historyData = [];
+
+        // Add customer registration event
+        if (customerData.created_at) {
+          historyData.push({
+            id: `registration-${customerData.id}`,
+            type: 'registration',
+            title: 'Customer Registered',
+            description: `${customerData.first_name} ${customerData.surname} registered as a customer`,
+            date: customerData.created_at,
+            icon: User,
+            color: 'text-blue-600',
+            bgColor: 'bg-blue-50'
+          });
+        }
+
+        // Add PAQ form completion event
+        if (customerData.paq_form) {
+          historyData.push({
+            id: `paq-${customerData.id}`,
+            type: 'paq_form',
+            title: 'PAQ Form Completed',
+            description: 'Physical Activity Questionnaire form submitted',
+            date: customerData.updated_at || customerData.created_at,
+            icon: FileText,
+            color: 'text-green-600',
+            bgColor: 'bg-green-50'
+          });
+        }
+
+        // Add enrollment events
+        if (enrollments && enrollments.length > 0) {
+          for (const enrollment of enrollments) {
+            historyData.push({
+              id: `enrollment-${enrollment.id}`,
+              type: 'enrollment',
+              title: 'Enrollment Created',
+              description: `Enrolled in fitness program`,
+              date: enrollment.created_at,
+              icon: Calendar,
+              color: 'text-purple-600',
+              bgColor: 'bg-purple-50',
+              enrollmentId: enrollment.id
+            });
+          }
+        }
+
+        // Add booking events
+        if (bookingsData && bookingsData.length > 0) {
+          for (const booking of bookingsData) {
+            const bookingEvent = {
+              id: `booking-${booking.id}`,
+              type: 'booking',
+              title: booking.is_free_trial ? 'Trial Class Booked' : 'Class Booked',
+              description: `${booking.classes?.name} at ${booking.classes?.venue}`,
+              date: booking.booking_date || booking.created_at,
+              icon: CheckCircle,
+              color: 'text-green-600',
+              bgColor: 'bg-green-50',
+              bookingId: booking.id,
+              classDetails: booking.classes
+            };
+
+            // Add cancellation events if applicable
+            if (booking.cancellation_status) {
+              const cancellationEvent = {
+                id: `cancellation-${booking.id}`,
+                type: 'cancellation',
+                title: `Class Cancelled (${booking.cancellation_status})`,
+                description: booking.cancellation_reason || 'No reason provided',
+                date: booking.updated_at || booking.created_at,
+                icon: XCircle,
+                color: 'text-red-600',
+                bgColor: 'bg-red-50',
+                bookingId: booking.id,
+                classDetails: booking.classes
+              };
+              historyData.push(cancellationEvent);
+            }
+
+            historyData.push(bookingEvent);
+          }
+        }
+
+        // Add payment events
+        if (paymentsData && paymentsData.length > 0) {
+          for (const payment of paymentsData) {
+            historyData.push({
+              id: `payment-${payment.id}`,
+              type: 'payment',
+              title: `Payment ${payment.payment_status === 'completed' ? 'Completed' : payment.payment_status}`,
+              description: `$${payment.amount.toFixed(2)} - Receipt #${payment.receipt_number}`,
+              date: payment.payment_date,
+              icon: CreditCard,
+              color: 'text-emerald-600',
+              bgColor: 'bg-emerald-50',
+              paymentId: payment.id,
+              amount: payment.amount,
+              status: payment.payment_status
+            });
+          }
+        }
+
+        // Add attendance events (if available)
+        const { data: attendanceData } = await supabase
+          .from('enrollment_sessions')
+          .select(`
+            *,
+            enrollments!inner(customer_id),
+            classes(name, venue)
+          `)
+          .eq('enrollments.customer_id', params.id)
+          .not('attended', 'is', null);
+
+        if (attendanceData && attendanceData.length > 0) {
+          for (const attendance of attendanceData) {
+            historyData.push({
+              id: `attendance-${attendance.id}`,
+              type: 'attendance',
+              title: attendance.attended ? 'Class Attended' : 'Class Missed',
+              description: `${attendance.classes?.name} at ${attendance.classes?.venue}`,
+              date: attendance.session_date,
+              icon: attendance.attended ? CheckCircle : XCircle,
+              color: attendance.attended ? 'text-green-600' : 'text-red-600',
+              bgColor: attendance.attended ? 'bg-green-50' : 'bg-red-50',
+              attendanceId: attendance.id,
+              attended: attendance.attended
+            });
+          }
+        }
+
+        // Add block/unblock events
+        if (customerData.blocked_at) {
+          historyData.push({
+            id: `block-${customerData.id}`,
+            type: 'block',
+            title: 'Account Blocked',
+            description: customerData.block_note || 'Account blocked by administrator',
+            date: customerData.blocked_at,
+            icon: AlertCircle,
+            color: 'text-red-600',
+            bgColor: 'bg-red-50'
+          });
+        }
+
+        // Sort history by date (newest first)
+        historyData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setHistory(historyData);
+
       } catch (error: any) {
         toast({
           title: 'Error',
@@ -197,6 +348,7 @@ export default function CustomerDetailsPage({ params }: { params: { id: string }
           <TabsTrigger value="personal">Personal Details</TabsTrigger>
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="personal">
@@ -401,6 +553,100 @@ export default function CustomerDetailsPage({ params }: { params: { id: string }
               </div>
             ) : (
               <p className="text-muted-foreground">No payment records found.</p>
+            )}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="history">
+          <Card className="p-6">
+            <h3 className="text-lg font-semibold mb-6">Customer History Timeline</h3>
+            {history.length > 0 ? (
+              <div className="space-y-6">
+                {history.map((event, index) => {
+                  const IconComponent = event.icon;
+                  return (
+                    <div key={event.id} className="relative">
+                      {/* Timeline line */}
+                      {index < history.length - 1 && (
+                        <div className="absolute left-6 top-12 w-0.5 h-16 bg-gray-200" />
+                      )}
+                      
+                      <div className="flex items-start gap-4">
+                        {/* Icon */}
+                        <div className={`flex-shrink-0 w-12 h-12 rounded-full ${event.bgColor} flex items-center justify-center`}>
+                          <IconComponent className={`h-6 w-6 ${event.color}`} />
+                        </div>
+                        
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold text-gray-900">{event.title}</h4>
+                            <span className="text-sm text-gray-500">
+                              {format(new Date(event.date), 'dd/MM/yyyy HH:mm')}
+                            </span>
+                          </div>
+                          
+                          <p className="text-gray-600 mb-3">{event.description}</p>
+                          
+                          {/* Additional details based on event type */}
+                          {event.type === 'booking' && event.classDetails && (
+                            <div className="bg-gray-50 rounded-lg p-3 space-y-1">
+                              <div className="flex items-center text-sm text-gray-600">
+                                <Clock className="h-4 w-4 mr-2" />
+                                {getDayName(event.classDetails.day_of_week)} {event.classDetails.start_time} - {event.classDetails.end_time}
+                              </div>
+                              <div className="flex items-center text-sm text-gray-600">
+                                <MapPin className="h-4 w-4 mr-2" />
+                                {event.classDetails.venue}
+                              </div>
+                              {event.classDetails.instructors && (
+                                <div className="text-sm text-gray-600">
+                                  Instructor: {event.classDetails.instructors.name}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {event.type === 'payment' && (
+                            <div className="flex items-center gap-2">
+                              <Badge variant={event.status === 'completed' ? 'default' : 'secondary'}>
+                                {event.status}
+                              </Badge>
+                              <span className="text-sm font-medium text-gray-700">
+                                ${event.amount.toFixed(2)}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {event.type === 'attendance' && (
+                            <Badge variant={event.attended ? 'default' : 'destructive'}>
+                              {event.attended ? 'Attended' : 'Missed'}
+                            </Badge>
+                          )}
+                          
+                          {event.type === 'cancellation' && event.classDetails && (
+                            <div className="bg-red-50 rounded-lg p-3">
+                              <div className="flex items-center text-sm text-red-700 mb-1">
+                                <AlertCircle className="h-4 w-4 mr-2" />
+                                Cancellation Reason
+                              </div>
+                              <p className="text-sm text-red-600">{event.description}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                  <Clock className="h-8 w-8 text-gray-400" />
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 mb-2">No History Available</h4>
+                <p className="text-gray-500">This customer doesn't have any activity history yet.</p>
+              </div>
             )}
           </Card>
         </TabsContent>
